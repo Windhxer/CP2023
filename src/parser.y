@@ -1,5 +1,4 @@
 %{
-#define Pi 3.14159265358979
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
