@@ -1,10 +1,10 @@
 #include"tree.h"
-#include"tools.h"
 
 gramTree* create_tree(string name, int num,...) {
     va_list valist;
     gramTree* head = new gramTree();
     if(!head) {
+        //内存不足
         printf("Out of space \n");
         exit(0);
     }   
@@ -44,17 +44,17 @@ gramTree* create_tree(string name, int num,...) {
                sscanf(yytext,"%x",&value); //16进制整数
            }
            else value = atoi(yytext);      //10进制整数
-           head->content = inttostr(value);
+           head->content = to_string(value);
            //printf("%d",value);
         }
         else if(head->name == "CONSTANT_DOUBLE") {
            head->content = yytext;
         }
         else if(head->name == "TRUE") {
-           head->content = inttostr(1);
+           head->content = to_string(1);
         }
         else if(head->name == "FALSE") {
-           head->content = inttostr(0);
+           head->content = to_string(0);
         }
         else {
             head->content = yytext;
