@@ -24,30 +24,30 @@ extern "C" int yywrap();
 "{"							{fprintf(yyout, "LBRACE ");}
 "}"							{fprintf(yyout, "RBRACE ");}
 
-"<<"							{fprintf(yyout, "SHL ");}
-">>"							{fprintf(yyout, "SHR ");}
-"=="							{fprintf(yyout, "EQ ");}
-">="							{fprintf(yyout, "GE ");}
-">"							{fprintf(yyout, "GT ");}
-"<="							{fprintf(yyout, "LE ");}
-"<"							{fprintf(yyout, "LT ");}
-"!="							{fprintf(yyout, "NEQ ");}
-"!"							{fprintf(yyout, "NOT ");}
-"="							{fprintf(yyout, "ASSIGN ");}
-"&&"							{fprintf(yyout, "AND ");}
-"&"							{fprintf(yyout, "BAND ");}
-"||"							{fprintf(yyout, "OR ");}
-"|"							{fprintf(yyout, "BOR ");}
+"<<"							{fprintf(yyout, "SHL ");return SHL;}
+">>"							{fprintf(yyout, "SHR ");return SHR;}
+"=="							{fprintf(yyout, "EQ "); return EQ;}
+">="							{fprintf(yyout, "GE "); return GE;}
+">"							{fprintf(yyout, "GT "); return GT;}
+"<="							{fprintf(yyout, "LE "); return LE;}
+"<"							{fprintf(yyout, "LT "); return LT;}
+"!="							{fprintf(yyout, "NEQ "); return NEQ;}
+"!"							{fprintf(yyout, "NOT "); return NOT;}
+"="							{fprintf(yyout, "ASSIGN "); return ASSIGN;}
+"&&"							{fprintf(yyout, "AND "); return AND;}
+"&"							{fprintf(yyout, "BAND "); return BAND;}
+"||"							{fprintf(yyout, "OR "); return OR;}
+"|"							{fprintf(yyout, "BOR "); return BOR;}
 "->"							{fprintf(yyout, "ARW ");}
-"^"							{fprintf(yyout, "BXOR ");}
-"~"							{fprintf(yyout, "BNOT ");}
-"+"							{fprintf(yyout, "ADD ");}
-"-"							{fprintf(yyout, "SUB ");}
-"*"							{fprintf(yyout, "MUL ");}
-"/"							{fprintf(yyout, "DIV ");}
-"%"							{fprintf(yyout, "MOD ");}
-"?"							{fprintf(yyout, "QUES ");}
-":"							{fprintf(yyout, "COLON ");}
+"^"							{fprintf(yyout, "BXOR "); return BXOR;}
+"~"							{fprintf(yyout, "BNOT "); return BNOT;}
+"+"							{fprintf(yyout, "ADD "); return ADD;}
+"-"							{fprintf(yyout, "SUB "); return SUB;}
+"*"							{fprintf(yyout, "MUL "); return MUL;}
+"/"							{fprintf(yyout, "DIV "); return DIV;}
+"%"							{fprintf(yyout, "MOD "); return MOD;}
+"?"							{fprintf(yyout, "QUES "); return QUES;}
+":"							{fprintf(yyout, "COLON "); return COLON;}
 
 "struct"						{fprintf(yyout, "STRUCT ");}
 "if"							{fprintf(yyout, "IF ");}
@@ -73,9 +73,9 @@ extern "C" int yywrap();
 "double"						{fprintf(yyout, "DOUBLE ");}
 "void"						{fprintf(yyout, "VOID ");}
 
-[a-zA-Z_][a-zA-Z0-9_]*                    {fprintf(yyout, "IDENTIFIER ");}
-[0-9]+\.[0-9]+                            {fprintf(yyout, "REAL ");}
-[0-9]+                                    {fprintf(yyout, "INTEGER ");}
+[" "; \t]   		{ }
+[a-zA-Z_][a-zA-Z0-9_]*                    {fprintf(yyout, "IDENTIFIER "); yylval.cv = *yytext; return IDENTIFIER;}
+(0(\.[0-9]+)?)|([1-9][0-9]*(\.[0-9]+)?)   {fprintf(yyout, "NUMBER ");yylval.dv = strtod(yytext,0);return NUMBER;}  
 .                                         {ECHO;}
 
 %%
