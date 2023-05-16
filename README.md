@@ -19,3 +19,6 @@ make lexer_only_run
 通过词法分析与语法分析构建语法树，而后在.y文件的main函数中对语法树进行分析，从而拆分代码结构
 tree/praser等有待修改
 根据yacc中的文法进行praser文件中函数的书写
+
+### innerCode
+innerCode.h/cpp文件里用来实现var变量等的记录并进行一定的优化
