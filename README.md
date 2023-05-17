@@ -17,8 +17,7 @@ make lexer_only_run
 
 ### praser架构
 通过词法分析与语法分析构建语法树(参考http://www.quut.com/c/ANSI-C-grammar-l-1998.html
-和 http://www.quut.com/c/ANSI-C-grammar-y-1995.html)，而后在.y文件的main函数中对语法树进行分析，从而拆分代码结构
-tree/praser等有待修改
+和 http://www.quut.com/c/ANSI-C-grammar-y-1995.html)，而后在.y文件的main函数中对语法树进行分析生成中间代码，从而拆分代码结构
 根据yacc中的文法进行praser文件中函数的书写
 
 ### innerCode
