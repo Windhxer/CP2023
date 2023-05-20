@@ -8,6 +8,8 @@
 #include<cstdarg>
 #include<iostream>
 #include<string>
+#include<vector>
+#include<map>
 extern char *yytext;
 extern int yylineno;//提供当前行数信息
 using namespace std;
