@@ -5,18 +5,17 @@ gramTree* create_tree(string name, int num,...) {
     gramTree* head = new gramTree();
     if(!head) {
         //内存不足
-        printf("Out of space \n");
+        printf("空间不足 \n");
         exit(0);
-    }   
-    head->left = NULL;
-    head->right = NULL;
+    }
     head->content = "";
     gramTree* temp = NULL;
     head->name = name;
     va_start(valist,num);
     if(num > 0) {
         temp = va_arg(valist,gramTree*);
-        head->left = temp;
+        temp->parent = head;
+        head->sibs.push_back(temp);
         head->line = temp->line;
         if(num == 1) {
             //head->content = temp->content;
@@ -27,8 +26,7 @@ gramTree* create_tree(string name, int num,...) {
         }
         else {
             for(int i = 1; i < num; ++i ) {
-                temp->right = va_arg(valist,gramTree*);
-                temp = temp->right;
+                head->sibs.push_back(va_arg(valist,gramTree*));
             }
         }
     }
@@ -45,7 +43,6 @@ gramTree* create_tree(string name, int num,...) {
            }
            else value = atoi(yytext);      //10进制整数
            head->content = to_string(value);
-           //printf("%d",value);
         }
         else if(head->name == "CONSTANT_DOUBLE") {
            head->content = yytext;
@@ -59,7 +56,6 @@ gramTree* create_tree(string name, int num,...) {
         else {
             head->content = yytext;
         }
-    
     }
     return head;
 }
@@ -72,7 +68,7 @@ void eval(gramTree *head,int leavel) {
             for(int i=0;i<leavel;++i) {
                 cout << ". ";
             }
-           cout << head->name;
+            cout << head->name;
         
             if(head->name == "IDENTIFIER"||head->name == "BOOL"|| head->name == "INT" || 
             head->name == "CHAR" || head->name == "DOUBLE") {
@@ -92,8 +88,9 @@ void eval(gramTree *head,int leavel) {
             }
             cout << endl;
         }
-        eval(head->left,leavel+1);
-        eval(head->right,leavel);
+        for (int i = 0; i < head->sibs.size(); i++){
+            eval(head->sibs[i],leavel+1);
+        }
     }
 }
 
@@ -101,17 +98,9 @@ void eval(gramTree *head,int leavel) {
 void freeGramTree(gramTree* node) {
 	if (node == NULL)
 		return;
-	freeGramTree(node->left);
+    auto treeIt = node->sibs.begin();
+        for (; treeIt <= node->sibs.end() - 1;treeIt++){
+        freeGramTree(*treeIt);
+        }
 	delete node;
-	freeGramTree(node->right);
-}
-
-char* my_substring(char* s, int begin, int end) {
-    char* result = (char*)malloc(end - begin + 1);
-    int i;
-    for(i = begin; i < end; i++) {
-        result[i - begin] = s[i];
-    }
-    result[i - begin] = 0;
-    return result;
 }

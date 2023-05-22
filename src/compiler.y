@@ -3,8 +3,6 @@
 #include <cstdio>
 #include <string>
 #include "tree.h"
-#include "block.h"
-#include "Praser.h"
 using namespace std;
 
 extern char *yytext;
@@ -749,7 +747,7 @@ int main(int argc,char* argv[]) {
 	printf("\n");
 	eval(root,0);	//输出语法分析树
 
-	Praser praser(root);
+	//Praser praser(root);
 
 	freeGramTree(root);
 
