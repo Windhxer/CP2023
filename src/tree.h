@@ -19,8 +19,8 @@ struct varNode {
 	string name;
 	string type;
 	int num = -1;
-	bool useAddress = false;
-	string boolString;
+	bool useAddress = false;	//判断指针类型，使其可以判断无struct等语法情况下的指针
+	string boolString;			//将bool变量囊括进普通变量中
 };
 
 //函数节点
@@ -38,25 +38,76 @@ struct arrayNode {
 	int num = -1;
 };
 
+class Node{
+public:
+	Node(void) { 
+		Type = EMPTY;
+		var = NULL;
+		func = NULL;
+		array = NULL;
+	}
+	Node(varNode * node1) { 
+		var = node1;
+		Type = VAR;
+	}
+	Node(arrayNode * node1) { 
+		array = node1;
+		Type = ARRAY;
+	}
+	Node(funcNode * node1) { 
+		func = node1;
+		Type = FUNC;
+	}
+
+	varNode *retVar(void) { return (Type == VAR) ? var : NULL; }
+	arrayNode *retArray(void) { return (Type == ARRAY) ? array : NULL; }
+	funcNode *retFunc(void) { return (Type == FUNC) ? func : NULL; }
+	string retType(void) {
+		switch (Type)
+		{
+		case VAR:
+			return "VAR";
+			break;
+		case FUNC:
+			return "FUNC";
+			break;
+		case ARRAY:
+			return "ARRAY";
+			break;
+		default:
+			return "EMPTY";
+			break;
+		}
+	}
+private:
+	varNode * var;
+	arrayNode * array;
+	funcNode * func;
+	enum {
+			FUNC,
+			ARRAY,
+			VAR,
+			EMPTY
+		} Type;
+};
 
 //block的内容
 class Block {
 public:
 	funcNode func;	//如果是函数，记录函数名
 	bool isfunc = false;//记录是否是函数
-	map<string, struct varNode> varMap;		//变量的map
-	map<string, struct arrayNode> arrayMap;	//数组的map
+	map<string, Node> varMap;		//变量的map
+	map<string, Node> arrayMap;	//数组的map
 	string breakLabelname;
 	bool canBreak = false;
 };
-
 
 struct gramTree {
     string content;
     string name;
     int line;       //所在代码行数
-    struct gramTree *left;
-    struct gramTree *right;
+    vector<struct gramTree *> sibs;
+	struct gramTree *parent;
 };
 
 extern struct gramTree *root;
