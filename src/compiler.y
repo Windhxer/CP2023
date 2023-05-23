@@ -17,37 +17,37 @@ void yyerror(const char*);
 %}
 
 %union{
-	struct treeNode* gt;
+	struct treeNode* nd;
 }
 
-%token <gt> IDENTIFIER CONSTANT STRING_LITERAL SIZEOF CONSTANT_INT CONSTANT_DOUBLE
-%token <gt> PTR_OP INC_OP DEC_OP LEFT_OP RIGHT_OP LE_OP GE_OP EQ_OP NE_OP
-%token <gt> AND_OP OR_OP MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN ADD_ASSIGN
-%token <gt> SUB_ASSIGN LEFT_ASSIGN RIGHT_ASSIGN AND_ASSIGN
-%token <gt> XOR_ASSIGN OR_ASSIGN TYPE_NAME
+%token <nd> IDENTIFIER CONSTANT STRING_LITERAL SIZEOF CONSTANT_INT CONSTANT_DOUBLE
+%token <nd> PTR_OP INC_OP DEC_OP LEFT_OP RIGHT_OP LE_OP GE_OP EQ_OP NE_OP
+%token <nd> AND_OP OR_OP MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN ADD_ASSIGN
+%token <nd> SUB_ASSIGN LEFT_ASSIGN RIGHT_ASSIGN AND_ASSIGN
+%token <nd> XOR_ASSIGN OR_ASSIGN TYPE_NAME
 
-%token <gt> CHAR INT DOUBLE VOID BOOL 
+%token <nd> CHAR INT DOUBLE VOID BOOL 
 
-%token <gt> CASE IF ELSE SWITCH WHILE DO FOR GOTO CONTINUE BREAK RETURN
+%token <nd> CASE IF ELSE SWITCH WHILE DO FOR GOTO CONTINUE BREAK RETURN
 
-%token <gt> TRUE FALSE
+%token <nd> TRUE FALSE
 
-%token <gt> ';' ',' ':' '=' '[' ']' '.' '&' '!' '~' '-' '+' '*' '/' '%' '<' '>' '^' '|' '?' '{' '}' '(' ')'
+%token <nd> ';' ',' ':' '=' '[' ']' '.' '&' '!' '~' '-' '+' '*' '/' '%' '<' '>' '^' '|' '?' '{' '}' '(' ')'
 
-%type <gt> primary_expression postfix_expression argument_expression_list unary_expression unary_operator
-%type <gt> multiplicative_expression additive_expression shift_expression relational_expression equality_expression
-%type <gt> and_expression exclusive_or_expression inclusive_or_expression logical_and_expression logical_or_expression
-%type <gt> assignment_expression assignment_operator expression
+%type <nd> primary_expression postfix_expression argument_expression_list unary_expression unary_operator
+%type <nd> multiplicative_expression additive_expression shift_expression relational_expression equality_expression
+%type <nd> and_expression exclusive_or_expression inclusive_or_expression logical_and_expression logical_or_expression
+%type <nd> assignment_expression assignment_operator expression
 
-%type <gt> declaration init_declarator_list init_declarator type_specifier
+%type <nd> declaration init_declarator_list init_declarator type_specifier
 
-%type <gt> declarator 
+%type <nd> declarator 
 
-%type <gt> parameter_list parameter_declaration identifier_list
-%type <gt> abstract_declarator initializer initializer_list designation designator_list
-%type <gt> designator statement labeled_statement compound_statement block_item_list block_item expression_statement
-%type <gt> selection_statement iteration_statement jump_statement translation_unit external_declaration function_definition
-%type <gt> declaration_list
+%type <nd> parameter_list parameter_declaration identifier_list
+%type <nd> abstract_declarator initializer initializer_list designation designator_list
+%type <nd> designator statement labeled_statement compound_statement block_item_list block_item expression_statement
+%type <nd> selection_statement iteration_statement jump_statement translation_unit external_declaration function_definition
+%type <nd> declaration_list
 
 
 
