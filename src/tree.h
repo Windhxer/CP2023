@@ -102,20 +102,20 @@ public:
 	bool canBreak = false;
 };
 
-struct gramTree {
+struct treeNode {
     string content;
     string name;
     int line;       //所在代码行数
-    vector<struct gramTree *> sibs;
-	struct gramTree *parent;
+    vector<struct treeNode *> sibs;
+	struct treeNode *parent;
 };
 
-extern struct gramTree *root;
+extern struct treeNode *root;
 
 //使用va_list处理变参
-struct gramTree* create_tree(string name, int num,...);
-void eval(struct gramTree *head,int leavel);
+struct treeNode* create_tree(string name, int num,...);
+void eval(struct treeNode *head,int leavel);
 char* my_substring(char* s, int begin, int end);
-void freeGramTree(gramTree* node);
+void freeGramTree(treeNode* node);
 
 #endif

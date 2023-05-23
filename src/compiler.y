@@ -9,7 +9,7 @@ extern char *yytext;
 extern int column;
 extern FILE * yyin;
 extern FILE * yyout;
-gramTree *root;
+treeNode *root;
 extern int yylineno;
 
 int yylex(void);
@@ -17,7 +17,7 @@ void yyerror(const char*);
 %}
 
 %union{
-	struct gramTree* gt;
+	struct treeNode* gt;
 }
 
 %token <gt> IDENTIFIER CONSTANT STRING_LITERAL SIZEOF CONSTANT_INT CONSTANT_DOUBLE
