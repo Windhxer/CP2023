@@ -79,6 +79,37 @@ public:
 			break;
 		}
 	}
+	string retName(void) {
+		switch (Type)
+		{
+		case VAR:
+			return var->name;
+			break;
+		case FUNC:
+			return func->name;
+			break;
+		case ARRAY:
+			return array->name;
+			break;
+		default:
+			return "EMPTY";
+			break;
+		}
+	}
+	bool retUseAdd(void){
+		if(Type == VAR && var->useAddress)
+			return true;
+		else
+			return false;
+	}
+	int retNum(void){
+		if(Type == VAR)
+			return var->num;
+		else if(Type == ARRAY)
+			return array->num;
+		else
+			return -1;
+	}
 private:
 	varNode * var;
 	arrayNode * array;

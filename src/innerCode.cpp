@@ -23,93 +23,94 @@ void InnerCode::printCode() {
 	}
 }
 
-string InnerCode::createCodeforVar(string tempname, string op, varNode node1, varNode node2) {
+string InnerCode::createCode(string tempname, string op, Node node1, Node node2) {
 	string result = tempname + " := ";
-	if (node1.useAddress) {
-		result += "*" + node1.name;
+
+	if (node1.retUseAdd()) {
+		result += "*" + node1.retName();
 	}
 	else {
-		if (node1.num < 0) {
-			result += node1.name;
+		if (node1.retNum() < 0) {
+			result += node1.retName();
 		}
-		else result += "var" + to_string(node1.num);
-		result = (node1.num < 0) ? (result + node1.name) : (result + "var" + to_string(node1.num));
+		else result += "var" + to_string(node1.retNum());
+		result = (node1.retNum() < 0) ? (result + node1.retName()) : (result + "var" + to_string(node1.retNum()));
 	}
 
 	result += " " + op + " ";
 
-	if (node2.useAddress) {
-		result += "*" + node2.name;
+	if (node2.retUseAdd()) {
+		result += "*" + node2.retName();
 	}
 	else {
-		if (node2.num < 0) {
-			result += node2.name;
+		if (node2.retNum() < 0) {
+			result += node2.retName();
 		}
-		else result += "var" + to_string(node2.num);
+		else result += "var" + to_string(node2.retNum());
 	}
 
 	return result;
 
 }
 
-string InnerCode::createCodeforAssign(varNode node1, varNode node2) {
+string InnerCode::createCode(Node node1, Node node2) {
 	string result;
-	if (node1.useAddress) {
-		result = "*" + node1.name + " := ";
+	if (node1.retUseAdd()) {
+		result = "*" + node1.retName() + " := ";
 	}
 	else {
-		result = "var" + to_string(node1.num);
+		result = "var" + to_string(node1.retNum());
 		result += " := ";
 	}
 
-	if (node2.useAddress) {
-		result += "*" + node2.name;
+	if (node2.retUseAdd()) {
+		result += "*" + node2.retName();
 	}
 	else {
-		if (node2.num < 0) {
-			result += node2.name;
+		if (node2.retNum() < 0) {
+			result += node2.retName();
 		}
-		else result += "var" + to_string(node2.num);
+		else result += "var" + to_string(node2.retNum());
 	}
 	
 
 	return result;
 }
 
-string InnerCode::createCodeforParameter(varNode node) {
+string InnerCode::createCode(Node node) {
 	string result = "PARAM ";
-	result += "var" + to_string(node.num);
+	result += "var" + to_string(node.retNum());
 	return result;
 }
 
-string InnerCode::createCodeforArgRet(string form, varNode node) {
+string InnerCode::createCode(string form, Node node) {
 	string result = form;
-	if (node.useAddress) {
-		result += "*" + node.name;
+	if (node.retUseAdd()) {
+		result += "*" + node.retName();
 	} 
 	else {
-		if (node.num < 0) {
-			result += node.name;
+		if (node.retNum() < 0) {
+			result += node.retName();
 		}
-		else result += "var" + to_string(node.num);
+		else result += "var" + to_string(node.retNum());
 	}
 	
 	return result;
 }
 
-string InnerCode::getNodeName(varNode node) {
-	if (node.useAddress) {
-		return "*" + node.name;
+string InnerCode::getNodeName(Node node) {
+	if (node.retUseAdd()) {
+		return "*" + node.retName();
 	}
 	else {
-		if (node.num < 0) {
-			return node.name;
+		if (node.retNum() < 0) {
+			return node.retName();
 		}
-		else return ("var" + to_string(node.num));
+		else return ("var" + to_string(node.retNum()));
 	}
 
 }
 
-string InnerCode::getarrayNodeName(arrayNode node) {
-	return ("array" + to_string(node.num));
+string InnerCode::getarrayNodeName(Node node) {
+	return ("array" + to_string(node.retNum()));
 }

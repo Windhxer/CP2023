@@ -4,7 +4,7 @@
 #include <iostream>
 #include "tree.h"
 #include<string>
-extern struct gramTree* root;
+extern struct treeNode* root;
 
 using namespace std;
 
@@ -21,13 +21,13 @@ public:
 	InnerCode();
 	void addCode(string);
 	void printCode();
-	string createCodeforVar(string tempname, string op, varNode node1, varNode node2);
-	string createCodeforAssign(varNode node1,varNode node2);
-	string createCodeforParameter(varNode node);
-	string createCodeforArgRet(string form, varNode node);
+	string createCode(string tempname, string op, Node node1, Node node2);
+	string createCode(Node node1,Node node2);
+	string createCode(Node node);
+	string createCode(string form, Node node);
 
-	string getNodeName(varNode node);
-	string getarrayNodeName(arrayNode node);
+	string getNodeName(Node node);
+	string getarrayNodeName(Node node);
 };
 
 #endif // !_INNERCODE_H_
