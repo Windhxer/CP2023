@@ -98,19 +98,21 @@ string InnerCode::createCode(string form, Node node) {
 	return result;
 }
 
-string InnerCode::getNodeName(Node node) {
-	if (node.retUseAdd()) {
-		return "*" + node.retName();
-	}
-	else {
-		if (node.retNum() < 0) {
-			return node.retName();
+string InnerCode::getNodeName(string form, Node node) {
+	if(form == "VAR"){
+		if (node.retUseAdd()) {
+			return "*" + node.retName();
 		}
-		else return ("var" + to_string(node.retNum()));
+		else {
+			if (node.retNum() < 0) {
+				return node.retName();
+			}
+			else return ("var" + to_string(node.retNum()));
+		}
 	}
-
+	else return ("array" + to_string(node.retNum()));
 }
-
-string InnerCode::getarrayNodeName(Node node) {
-	return ("array" + to_string(node.retNum()));
-}
+/*直接使用字符串加法即可，无需使用函数接口
+string InnerCode::getLabelName() {
+	return "label" + inttostr(labelNum++);
+}*/
