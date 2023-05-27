@@ -1,6 +1,6 @@
 #include"tree.h"
 
-treeNode* create_tree(string name, int num,...) {
+treeNode* createTree(string name, int num,...) {
     va_list valist;
     treeNode* head = new treeNode();
     if(!head) {
@@ -64,7 +64,7 @@ treeNode* create_tree(string name, int num,...) {
 }
 
 //进行树的打印
-void eval(treeNode *head,int leavel) {
+void Eval(treeNode *head,int leavel) {
     if(head!=NULL) {
         string Name = head->name;
         if(head->line!=-1) {
@@ -93,7 +93,7 @@ void eval(treeNode *head,int leavel) {
         }
         //逐个子节点进行打印
         for (int i = 0; i < head->sibs.size(); i++){
-            eval(head->sibs[i],leavel+1);
+            Eval(head->sibs[i],leavel+1);
         }
     }
 }

@@ -144,8 +144,8 @@ struct treeNode {
 extern struct treeNode *root;
 
 //使用va_list处理变参
-struct treeNode* create_tree(string name, int num,...);
-void eval(struct treeNode *head,int leavel);
+struct treeNode* createTree(string name, int num,...);
+void Eval(struct treeNode *head,int leavel);
 char* my_substring(char* s, int begin, int end);
 void freeGramTree(treeNode* node);
 
