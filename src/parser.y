@@ -1,17 +1,14 @@
 %{
-#include <cstdlib>
-#include <cstdio>
 #include <string>
-#include "tree.h"
-#include "block.h"
-#include "Praser.h"
+#include "tree.hpp"
+#include "Translator.hpp"
 using namespace std;
 
 extern char *yytext;
 extern int column;
 extern FILE * yyin;
 extern FILE * yyout;
-treeNode *root;
+treeNode* root;
 extern int yylineno;
 
 int yylex(void);
@@ -19,250 +16,747 @@ void yyerror(const char*);
 %}
 
 %union{
-	struct treeNode* nd;
+	class treeNode* tN;
 }
-%token <nd> IDENTIFIER CONSTANT STRING_LITERAL SIZEOF CONSTANT_INT CONSTANT_DOUBLE
-%token <nd> PTR_OP INC_OP DEC_OP LEFT_OP RIGHT_OP LE_OP GE_OP EQ_OP NE_OP
-%token <nd> AND_OP OR_OP MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN ADD_ASSIGN
-%token <nd> SUB_ASSIGN LEFT_ASSIGN RIGHT_ASSIGN AND_ASSIGN
-%token <nd> XOR_ASSIGN OR_ASSIGN TYPE_NAME
+%output "parser.cpp"
 
-%token <nd> CHAR INT DOUBLE VOID BOOL 
+%token <tN> IDENTIFIER CONSTANT STRING_LITERAL SIZEOF CONSTANT_INT CONSTANT_DOUBLE
+%token <tN> PTR_OP INC_OP DEC_OP LEFT_OP RIGHT_OP LE_OP GE_OP EQ_OP NE_OP
+%token <tN> AND_OP OR_OP MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN ADD_ASSIGN
+%token <tN> SUB_ASSIGN LEFT_ASSIGN RIGHT_ASSIGN AND_ASSIGN
+%token <tN> XOR_ASSIGN OR_ASSIGN TYPE_NAME
 
-%token <nd> CASE IF ELSE SWITCH WHILE DO FOR GOTO CONTINUE BREAK RETURN
+%token <tN> CHAR INT DOUBLE VOID BOOL 
 
-%token <nd> TRUE FALSE
+%token <tN> CASE IF ELSE SWITCH WHILE DO FOR GOTO CONTINUE BREAK RETURN
 
-%token <nd> ';' ',' ':' '=' '[' ']' '.' '&' '!' '~' '-' '+' '*' '/' '%' '<' '>' '^' '|' '?' '{' '}' '(' ')'
+%token <tN> TRUE FALSE
 
+%token <tN> ';' ',' ':' '=' '[' ']' '.' '&' '!' '~' '-' '+' '*' '/' '%' '<' '>' '^' '|' '?' '{' '}' '(' ')'
 
-%nonassoc IF
+%type <tN> primary_expression postfix_expression argument_expression_list unary_expression unary_operator
+%type <tN> multiplicative_expression additive_expression shift_expression relational_expression equality_expression
+%type <tN> and_expression exclusive_or_expression inclusive_or_expression logical_and_expression logical_or_expression
+%type <tN> assignment_expression assignment_operator expression
+
+%type <tN> declaration init_declarator_list init_declarator type_specifier
+
+%type <tN> declarator 
+
+%type <tN> parameter_list parameter_declaration identifier_list
+%type <tN> abstract_declarator initializer initializer_list designation designator_list
+%type <tN> designator statement labeled_statement compound_statement block_item_list block_item expression_statement
+%type <tN> selection_statement iteration_statement jump_statement translation_unit external_declaration function_definition
+%type <tN> declaration_list
+
+%nonassoc LOWER_THAN_ELSE
 %nonassoc ELSE
+%%
+
+Program: 
+	translation_unit {
+		root = new treeNode("Program",1,$1);
+	}
+	;
+
+/*基本表达式*/
+primary_expression: 
+	IDENTIFIER {
+		$$ = new treeNode("primary_expression",1,$1);
+	}
+	|
+	TRUE {
+		$$ = new treeNode("primary_expression",1,$1);
+		// $$->type = "bool";
+		// $$->int_value = $1->int_value;
+	}
+	|
+	FALSE {
+		$$ = new treeNode("primary_expression",1,$1);
+		// $$->type = "bool";
+		// $$->int_value = $1->int_value;
+	}
+	| CONSTANT_INT {
+		//printf("%d",$1->int_value);
+		$$ = new treeNode("primary_expression",1,$1);
+		// $$->type = "int";
+		// $$->int_value = $1->int_value;
+		
+	}
+	| CONSTANT_DOUBLE {
+		$$ = new treeNode("primary_expression",1,$1);
+		// $$->type = "double";
+		// $$->double_value = $1->double_value;
+	}
+	| '(' expression ')'{
+		$$ = new treeNode("primary_expression",3,$1,$2,$3);
+	}
+	;
+
+/*后缀表达式*/
+postfix_expression:
+	primary_expression{
+		$$ = new treeNode("postfix_expression",1,$1);
+	}
+	| 	postfix_expression '[' expression ']'{
+		$$ = new treeNode("postfix_expression",4,$1,$2,$3,$4);
+		//数组调用
+	}
+	| 	postfix_expression '(' ')'{
+		$$ = new treeNode("postfix_expression",3,$1,$2,$3);
+		//函数调用
+	}
+	| 	postfix_expression '(' argument_expression_list ')'{
+		$$ = new treeNode("postfix_expression",4,$1,$2,$3,$4);
+		//函数调用
+	}
+	| 	postfix_expression INC_OP{
+		//++
+		$$ = new treeNode("postfix_expression",2,$1,$2);
+	}
+	| 	postfix_expression DEC_OP{
+		//--
+		$$ = new treeNode("postfix_expression",2,$1,$2);
+	}
+	;
+
+argument_expression_list:
+	assignment_expression{
+		$$ = new treeNode("argument_expression_list",1,$1);
+	}
+	| 	argument_expression_list ',' assignment_expression {
+		$$ = new treeNode("argument_expression_list",3,$1,$2,$3);
+	}
+	;
+
+/*一元表达式*/
+unary_expression:
+	postfix_expression{
+		//printf("postfix");
+		$$ = new treeNode("unary_expression",1,$1);
+	}
+	| 	INC_OP unary_expression{
+		//++
+		$$ = new treeNode("unary_expression",2,$1,$2);
+	}
+	| 	DEC_OP unary_expression{
+		//--
+		$$ = new treeNode("unary_expression",2,$1,$2);
+	}
+	| 	unary_operator unary_expression{
+		$$ = new treeNode("unary_expression",2,$1,$2);
+	}
+	;
+
+/*单目运算符*/
+unary_operator:
+	'+' {
+		$$ = new treeNode("unary_operator",1,$1);
+	}
+	| '-' {
+		$$ = new treeNode("unary_operator",1,$1);
+	}
+	| '~' {
+		$$ = new treeNode("unary_operator",1,$1);
+	}
+	| '!' {
+		$$ = new treeNode("unary_operator",1,$1);
+	}
+	;
+
+/*可乘表达式*/
+multiplicative_expression:
+	unary_expression {
+		$$ = new treeNode("multiplicative_expression",1,$1);
+	}
+	| multiplicative_expression '*' unary_expression {
+		$$ = new treeNode("multiplicative_expression",3,$1,$2,$3);
+	}
+	| multiplicative_expression '/' unary_expression {
+		$$ = new treeNode("multiplicative_expression",3,$1,$2,$3);
+	}
+	| multiplicative_expression '%' unary_expression {
+		$$ = new treeNode("multiplicative_expression",3,$1,$2,$3);
+	}
+	;
+
+/*可加表达式*/
+additive_expression:
+	multiplicative_expression  {
+		$$ = new treeNode("additive_expression",1,$1);
+	}
+	| additive_expression '+' multiplicative_expression {
+		$$ = new treeNode("additive_expression",3,$1,$2,$3);
+	}
+	| additive_expression '-' multiplicative_expression {
+		$$ = new treeNode("additive_expression",3,$1,$2,$3);
+	}
+	;
+
+/*左移右移*/
+shift_expression:
+	additive_expression {
+		$$ = new treeNode("shift_expression",1,$1);
+	}
+	| shift_expression LEFT_OP additive_expression {
+		//<<
+		$$ = new treeNode("shift_expression",3,$1,$2,$3);
+	}
+	| shift_expression RIGHT_OP additive_expression {
+		//<<
+		$$ = new treeNode("shift_expression",3,$1,$2,$3);
+	}
+	;
+
+/*关系表达式*/
+relational_expression:
+	shift_expression {
+		$$ = new treeNode("relational_expression",1,$1);
+	}
+	| relational_expression '<' shift_expression {
+		$$ = new treeNode("relational_expression",3,$1,$2,$3);
+	}
+	| relational_expression '>' shift_expression {
+		$$ = new treeNode("relational_expression",3,$1,$2,$3);
+	}
+	| relational_expression LE_OP shift_expression {
+		// <= 
+		$$ = new treeNode("relational_expression",3,$1,$2,$3);
+	}
+	| relational_expression GE_OP shift_expression {
+		// >=
+		$$ = new treeNode("relational_expression",3,$1,$2,$3);
+	}
+	;
+
+/*相等表达式*/
+equality_expression:
+	relational_expression {
+		$$ = new treeNode("equality_expression",1,$1);
+	}
+	| equality_expression EQ_OP relational_expression {
+		// ==
+		$$ = new treeNode("equality_expression",3,$1,$2,$3);
+	}
+	| equality_expression NE_OP relational_expression {
+		// !=
+		$$ = new treeNode("equality_expression",3,$1,$2,$3);
+	}
+	;
+
+and_expression:
+	equality_expression {
+		$$ = new treeNode("and_expression",1,$1);
+	}
+	| and_expression '&' equality_expression {
+		$$ = new treeNode("and_expression",3,$1,$2,$3);
+	}
+	;
+
+/*异或*/
+exclusive_or_expression:
+	and_expression {
+		$$ = new treeNode("exclusive_or_expression",1,$1);
+	}
+	| exclusive_or_expression '^' and_expression {
+		$$ = new treeNode("exclusive_or_expression",3,$1,$2,$3);
+	}
+	;
+
+/*或*/
+inclusive_or_expression:
+	exclusive_or_expression {
+		$$ = new treeNode("inclusive_or_expression",1,$1);
+	}
+	| inclusive_or_expression '|' exclusive_or_expression {
+		$$ = new treeNode("inclusive_or_expression",3,$1,$2,$3);
+	}
+	;
+
+/*and逻辑表达式*/
+logical_and_expression:
+	inclusive_or_expression {
+		$$ = new treeNode("logical_and_expression",1,$1);
+	}
+	| logical_and_expression AND_OP inclusive_or_expression {
+		//&&
+		$$ = new treeNode("logical_and_expression",3,$1,$2,$3);
+	}
+	;
+
+/*or 逻辑表达式*/
+logical_or_expression:
+	logical_and_expression {
+		$$ = new treeNode("logical_or_expression",1,$1);
+	}
+	| logical_or_expression OR_OP logical_and_expression {
+		//||
+		$$ = new treeNode("logical_or_expression",3,$1,$2,$3);
+	}
+	;
+
+/*赋值表达式*/
+assignment_expression:
+	logical_or_expression {
+		//条件表达式
+		$$ = new treeNode("assignment_expression",1,$1);
+	}
+	| unary_expression assignment_operator assignment_expression {
+		$$ = new treeNode("assignment_expression",3,$1,$2,$3);
+	}
+	;
+
+/*赋值运算符*/
+assignment_operator:
+	'=' {
+		$$ = new treeNode("assignment_operator",1,$1);
+	}
+	| MUL_ASSIGN {
+		//*=
+		$$ = new treeNode("assignment_operator",1,$1);
+	}
+	| DIV_ASSIGN {
+		// /=
+		$$ = new treeNode("assignment_operator",1,$1);
+	}
+	| MOD_ASSIGN {
+		// %=
+		$$ = new treeNode("assignment_operator",1,$1);
+	}
+	| ADD_ASSIGN {
+		// += 
+		$$ = new treeNode("assignment_operator",1,$1);
+	}
+	| SUB_ASSIGN {
+		// -=
+		$$ = new treeNode("assignment_operator",1,$1);
+	}
+	| LEFT_ASSIGN {
+		// <<=
+		$$ = new treeNode("assignment_operator",1,$1);
+	}
+	| RIGHT_ASSIGN {
+		// >>=
+		$$ = new treeNode("assignment_operator",1,$1);
+	}
+	| AND_ASSIGN {
+		// &=
+		$$ = new treeNode("assignment_operator",1,$1);
+	}
+	| XOR_ASSIGN {
+		// ^=
+		$$ = new treeNode("assignment_operator",1,$1);
+	}
+	| OR_ASSIGN {
+		// |=
+		$$ = new treeNode("assignment_operator",1,$1);
+	}
+	;
+
+/*表达式*/
+expression:
+	assignment_expression {
+		//赋值表达式
+		$$ = new treeNode("expression",1,$1);
+	}
+	| expression ',' assignment_expression {
+		//逗号表达式
+		$$ = new treeNode("expression",3,$1,$2,$3);
+	}
+	;
 
 
-%left	',' //15
-%left	ARGS// 仅用来指定优先级
-%right	ASSIGN ADD_ASSIGN SUB_ASSIGN MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN LEFT_ASSIGN RIGHT_ASSIGN AND_ASSIGN OR_ASSIGN XOR_ASSIGN //15
-%right	'?' ':' //14
-%left	OR_OP//13
-%left	AND_OP//12
-%left	'|'//11
-%left	'^'//10
-%left	'&'//9
-%left	EQ_OP NEQ_OP//8
-%left	GE_OP '>' LE_OP '<'//7
-%left	LEFT_OP RIGHT_OP//6
-%left	'+' '-'//5
-%left	TYPE_CHANGE//4，仅用来指定优先级
-%left	'*' '/' '%'//3
-%right	'!' '~' //2, ++a, --a
-%left	INC_OP DEC_OP//1, a++, a--
+declaration:
+	type_specifier ';' {
+		$$ = new treeNode("declaration",2,$1,$2); //?
+	}
+	| type_specifier init_declarator_list ';' {
+		$$ = new treeNode("declaration",3,$1,$2,$3);
+	}
+	;
+
+
+init_declarator_list:
+	init_declarator {
+		$$ = new treeNode("init_declarator_list",1,$1);
+	}
+	| init_declarator_list ',' init_declarator {
+		$$ = new treeNode("init_declarator_list",3,$1,$2,$3);
+	}
+	;
+
+init_declarator:
+	declarator {
+		$$ = new treeNode("init_declarator",1,$1);
+	}
+	| declarator '=' initializer {
+		$$ = new treeNode("init_declarator",3,$1,$2,$3);
+	}
+	;
+
+
+/*类型说明符*/
+type_specifier:
+	VOID {
+		$$ = new treeNode("type_specifier",1,$1);
+	}
+	| CHAR {
+		$$ = new treeNode("type_specifier",1,$1);
+	}
+	| INT {
+		$$ = new treeNode("type_specifier",1,$1);
+	}
+	| DOUBLE {
+		$$ = new treeNode("type_specifier",1,$1);	
+	}
+	| BOOL {
+		$$ = new treeNode("type_specifier",1,$1);
+	}
+	;
+
+
+
+declarator:
+	IDENTIFIER {
+		//变量
+		$$ = new treeNode("declarator",1,$1);
+	}
+	| '(' declarator ')' {
+		//.....
+		$$ = new treeNode("declarator",3,$1,$2,$3);
+	}
+	| declarator '[' assignment_expression ']' {
+		//数组
+		//printf("assignment_expression");
+		$$ = new treeNode("declarator",4,$1,$2,$3,$4);
+	}
+	| declarator '[' '*' ']' {
+		//....
+		$$ = new treeNode("declarator",4,$1,$2,$3,$4);
+	}
+	| declarator '[' ']' {
+		//数组
+		$$ = new treeNode("declarator",3,$1,$2,$3);
+	}
+	| declarator '(' parameter_list ')' {
+		//函数
+		$$ = new treeNode("declarator",4,$1,$2,$3,$4);
+	}
+	| declarator '(' identifier_list ')' {
+		//函数
+		$$ = new treeNode("declarator",4,$1,$2,$3,$4);
+	}
+	| declarator '(' ')' {
+		//函数
+		$$ = new treeNode("declarator",3,$1,$2,$3);
+	}
+	;
+
+
+//参数列表
+parameter_list:
+	parameter_declaration {
+		$$ = new treeNode("parameter_list",1,$1);
+	}
+	| parameter_list ',' parameter_declaration {
+		$$ = new treeNode("parameter_list",3,$1,$2,$3);
+	}
+	;
+
+parameter_declaration:
+	type_specifier declarator {
+		$$ = new treeNode("parameter_declaration",2,$1,$2);
+	}
+	| type_specifier abstract_declarator {
+		$$ = new treeNode("parameter_declaration",2,$1,$2);
+	}
+	| type_specifier {
+		$$ = new treeNode("parameter_declaration",1,$1);
+	}
+	;
+
+identifier_list:
+	IDENTIFIER {
+		$$ = new treeNode("identifier_list",1,$1);
+	}
+	| identifier_list ',' IDENTIFIER {
+		$$ = new treeNode("identifier_list",3,$1,$2,$3);
+	}
+	;
+
+abstract_declarator:
+	'(' abstract_declarator ')' {
+		$$ = new treeNode("abstract_declarator",3,$1,$2,$3);
+	}
+	| '[' ']' {
+		$$ = new treeNode("abstract_declarator",2,$1,$2);
+	}
+	| '[' assignment_expression ']' {
+		$$ = new treeNode("abstract_declarator",3,$1,$2,$3);
+	}
+	| abstract_declarator '[' ']' {
+		$$ = new treeNode("abstract_declarator",3,$1,$2,$3);
+	}
+	| abstract_declarator '[' assignment_expression ']' {
+		$$ = new treeNode("abstract_declarator",4,$1,$2,$3,$4);
+	}
+	| '[' '*' ']' {
+		$$ = new treeNode("abstract_declarator",3,$1,$2,$3);
+	}
+	| abstract_declarator '[' '*' ']' {
+		$$ = new treeNode("abstract_declarator",4,$1,$2,$3,$4);
+	}
+	| '(' ')' {
+		$$ = new treeNode("abstract_declarator",2,$1,$2);
+	}
+	| '(' parameter_list ')' {
+		$$ = new treeNode("abstract_declarator",3,$1,$2,$3);
+	}
+	| abstract_declarator '(' ')' {
+		$$ = new treeNode("abstract_declarator",3,$1,$2,$3);
+	}
+	| abstract_declarator '(' parameter_list ')' {
+		$$ = new treeNode("abstract_declarator",4,$1,$2,$3,$4);
+	}
+	;
+
+//初始化
+initializer:
+	assignment_expression {
+		$$ = new treeNode("initializer",1,$1);
+	}
+	| '{' initializer_list '}' {
+		//列表初始化 {1,1,1}
+		$$ = new treeNode("initializer",3,$1,$2,$3);
+	}
+	| '{' initializer_list ',' '}' {
+		//列表初始化 {1,1,1,}
+		$$ = new treeNode("initializer",4,$1,$2,$3,$4);
+	}
+	;
+
+initializer_list:
+	initializer {
+		$$ = new treeNode("initializer_list",1,$1);
+	}
+	| designation initializer {
+		$$ = new treeNode("initializer_list",2,$1,$2);
+	}
+	| initializer_list ',' initializer {
+		$$ = new treeNode("initializer_list",3,$1,$2,$3);
+	}
+	| initializer_list ',' designation initializer {
+		$$ = new treeNode("initializer_list",3,$1,$2,$3);
+	}
+	;
+
+designation:
+	designator_list '=' {
+		$$ = new treeNode("designation",2,$1,$2);
+	}
+	;
+
+designator_list:
+	designator {
+		$$ = new treeNode("designator_list",1,$1);
+	}
+	| designator_list designator {
+		$$ = new treeNode("designator_list",2,$1,$2);
+	}
+	;
+
+designator: 
+	'[' logical_or_expression ']' {
+		$$ = new treeNode("designator",3,$1,$2,$3);
+	}
+	| '.' IDENTIFIER {
+		$$ = new treeNode("designator",2,$1,$2);
+	}
+	;
+
+//声明
+statement:
+	labeled_statement {
+		$$ = new treeNode("statement",1,$1);
+	}
+	| compound_statement {
+		$$ = new treeNode("statement",1,$1);
+	}
+	| expression_statement{
+		$$ = new treeNode("statement",1,$1);
+	}
+	| selection_statement {
+		$$ = new treeNode("statement",1,$1);
+	}
+	| iteration_statement {
+		$$ = new treeNode("statement",1,$1);
+	}
+	| jump_statement {
+		$$ = new treeNode("statement",1,$1);
+	}
+	;
+
+//标签声明
+labeled_statement:
+	IDENTIFIER ':' statement {
+		$$ = new treeNode("labeled_statement",3,$1,$2,$3);
+	}
+	| CASE logical_or_expression ':' statement {
+		$$ = new treeNode("labeled_statement",4,$1,$2,$3,$4);
+	}
+	;
+
+//复合语句
+compound_statement:
+	'{' '}' {
+		$$ = new treeNode("compound_statement",2,$1,$2);
+	}
+	| '{' block_item_list '}' {
+		$$ = new treeNode("compound_statement",3,$1,$2,$3);
+	}
+	;
+
+block_item_list:
+	block_item {
+		$$ = new treeNode("block_item_list",1,$1);
+	}
+	| block_item_list block_item {
+		$$ = new treeNode("block_item_list",2,$1,$2);
+	}
+	;
+
+block_item:
+	declaration {
+		$$ = new treeNode("block_item",1,$1);
+	}
+	| statement {
+		$$ = new treeNode("block_item",1,$1);
+	}
+	;
+
+expression_statement:
+	';' {
+		$$ = new treeNode("expression_statement",1,$1);
+	}
+	| expression ';' {
+		$$ = new treeNode("expression_statement",2,$1,$2);
+	}
+	;
+
+//条件语句
+selection_statement:
+	IF '(' expression ')' statement %prec LOWER_THAN_ELSE {
+		$$ = new treeNode("selection_statement",5,$1,$2,$3,$4,$5);
+	}
+    | IF '(' expression ')' statement ELSE statement {
+		$$ = new treeNode("selection_statement",7,$1,$2,$3,$4,$5,$6,$7);
+	}
+    | SWITCH '(' expression ')' statement {
+		$$ = new treeNode("selection_statement",5,$1,$2,$3,$4,$5);
+	}
+    ;
+
+//循环语句
+iteration_statement:
+	WHILE '(' expression ')' statement {
+		$$ = new treeNode("iteration_statement",5,$1,$2,$3,$4,$5);
+	}
+	| DO statement WHILE '(' expression ')' ';' {
+		$$ = new treeNode("iteration_statement",7,$1,$2,$3,$4,$5,$6,$7);
+	}
+	| FOR '(' expression_statement expression_statement ')' statement {
+		$$ = new treeNode("iteration_statement",6,$1,$2,$3,$4,$5,$6);
+	}
+	| FOR '(' expression_statement expression_statement expression ')' statement {
+		$$ = new treeNode("iteration_statement",7,$1,$2,$3,$4,$5,$6,$7);
+	}
+	| FOR '(' declaration expression_statement ')' statement {
+		$$ = new treeNode("iteration_statement",6,$1,$2,$3,$4,$5,$6);
+	}
+	| FOR '(' declaration expression_statement expression ')' statement {
+		$$ = new treeNode("iteration_statement",7,$1,$2,$3,$4,$5,$6,$7);
+	}
+	;
+
+//跳转指令
+jump_statement:
+	GOTO IDENTIFIER ';' {
+		$$ = new treeNode("jump_statement",2,$1,$2);
+	}
+	| CONTINUE ';' {
+		$$ = new treeNode("jump_statement",2,$1,$2);
+	}
+	| BREAK ';' {
+		$$ = new treeNode("jump_statement",2,$1,$2);
+	}
+	| RETURN ';' {
+		$$ = new treeNode("jump_statement",2,$1,$2);
+	}
+	| RETURN expression ';' {
+		$$ = new treeNode("jump_statement",3,$1,$2,$3);
+	}
+	;
+
+translation_unit:
+	external_declaration {
+		$$ = new treeNode("translation_unit",1,$1);
+	}
+	| translation_unit external_declaration {
+		$$ = new treeNode("translation_unit",2,$1,$2);
+	}
+	;
+
+external_declaration:
+	function_definition {
+		$$ = new treeNode("external_declaration",1,$1);
+		//函数定义
+		//printf("function_definition");
+	}
+	| declaration {
+		$$ = new treeNode("external_declaration",1,$1);
+		//变量声明
+		//printf("declaration");
+	}
+	;
+
+function_definition:
+	type_specifier declarator declaration_list compound_statement {
+		$$ = new treeNode("function_definition",4,$1,$2,$3,$4);
+	}
+	| type_specifier declarator compound_statement {
+		$$ = new treeNode("function_definition",3,$1,$2,$3);
+	}
+	;
+
+declaration_list:
+	declaration {
+		$$ = new treeNode("declaration_list",1,$1);
+	}
+	| declaration_list declaration {
+		$$ = new treeNode("declaration_list",2,$1,$2);
+	}
+	;
 
 %%
 
-Program:		Decls{
-					root = create_tree("Program",1,$1);
-				}
-				;
+void yyerror(char const *s)
+{
+	fflush(stdout);
+	printf("\n%*s\n%*s\n", column, "^", column, s);
+}
 
-Decls:			Decls Decl	{$$ = create_tree("Decls",2,$1,$2);}
-			|				{$$ = create_tree("Decls",0,yylineno);}
-			;
+int main(int argc,char* argv[]) {
+	yyin = fopen(argv[1],"r");
+	
+	//freopen("output/output.txt","w", stdout);
+	yyparse();
+	printf("\n");
+	/* eval(root,0);	//输出语法分析树 */
 
-Decl:			VarDecl		{$$ = create_tree("Decl",1,$1);}
-			|	TypeDecl	{$$ = create_tree("Decl",1,$1);}
-			|	FunDecl		{$$ = create_tree("Decl",1,$1);}
-			;
+	/* Praser praser(root); */
 
-VarDecl:		DataType VarList ';'	{$$ = create_tree("VarDecl",2,$1,$2);}
-			;
+	/* freeGramTree(root); */
 
-DataType:		BuildInType		{$$ = create_tree("DataType",1,$1);}
-			|	DataType '*'	{$$ = create_tree("DataType",2,$1,$2);}
-			|	IDENTIFIER /* typedef */	{$$ = create_tree("DataType",1,$1);}
-			;
-
-BuildInType:	INT				{$$ = create_tree("BuildInType",1,$1);}
-			|	CHAR			{$$ = create_tree("BuildInType",1,$1);}
-			|	VOID			{$$ = create_tree("BuildInType",1,$1);}
-			|	DOUBLE			{$$ = create_tree("BuildInType",1,$1);}
-			|	BOOL			{$$ = create_tree("BuildInType",1,$1);}
-			;
-
-FieldDecls:		FieldDecls FieldDecl	{$$ = create_tree("FieldDecls",2,$1,$2);}
-			|							{$$ = create_tree("FieldDecls",0,yylineno);}
-			;
-
-FieldDecl:		DataType MemList ';'	{$$ = create_tree("FieldDecl",3,$1,$2,$3);}
-			|	';'						{$$ = create_tree("FieldDecl",1,$1);}
-			;
-
-MemList:		MemList ',' IDENTIFIER	{$$ = create_tree("MemList",3,$1,$2,$3);}
-			|	IDENTIFIER				{$$ = create_tree("MemList",1,$1);}
-			;
-
-VarList:		Var ',' VarList			{$$ = create_tree("VarList",3,$1,$2,$3);}
-			|	Var						{$$ = create_tree("VarList",1,$1);}
-			;
-
-Var:			IDENTIFIER				{$$ = create_tree("Var",1,$1);}
-			|	IDENTIFIER ASSIGN Exp	{$$ = create_tree("Var",3,$1,$2,$3);}
-			;
-
-TypeDecl:		TYPEDEF DataType IDENTIFIER ';'	{$$ = create_tree("TypeDecl",4,$1,$2,$3,$4);}
-			;
-
-FunDecl:		ReturnType IDENTIFIER LPAREN ArgList RPAREN ';'	{
-					{$$ = create_tree("FunDecl",6,$1,$2,$3,$4,$5,$6);}
-			}
-			|	ReturnType IDENTIFIER LPAREN ArgList RPAREN FunBody{
-					{$$ = create_tree("FunDecl",6,$1,$2,$3,$4,$5,$6);}
-			}
-			;
-
-ReturnType:		DataType	{$$ = create_tree("ReturnType",1,$1);}
-			|	VOID		{$$ = create_tree("ReturnType",1,$1);}
-
-ArgList:		ArgList_ ',' Arg		{$$ = create_tree("ArgList",3,$1,$2,$3);}
-			|	Arg						{$$ = create_tree("ArgList",1,$1);}
-			|	VOID					{$$ = create_tree("ArgList",1,$1);}
-			|							{$$ = create_tree("ArgList",0,yylineno);}
-			;
-
-Arg:			DataType IDENTIFIER		{$$ = create_tree("Arg",2,$1,$2);}
-			|	DataType				{$$ = create_tree("Arg",1,$1);}
-			;
-
-FunBody:		LBRACE Stms RBRACE		{$$ = create_tree("FunBody",3,$1,$2,$3);}
-			;
-
-Stms:			Stms Stm				{$$ = create_tree("Stms",2,$1,$2);}
-			|							{$$ = create_tree("Stms",0,yylineno);}
-			;
-
-Stm:			Exp ';'					{$$ = create_tree("Stm",2,$1,$2);}
-			|	IfStm					{$$ = create_tree("Stm",1,$1);}
-			|	ForStm					{$$ = create_tree("Stm",1,$1);}
-			|	WhileStm				{$$ = create_tree("Stm",1,$1);}
-			|	DoStm					{$$ = create_tree("Stm",1,$1);}
-			|	SwitchStm				{$$ = create_tree("Stm",1,$1);}
-			|	BreakStm				{$$ = create_tree("Stm",1,$1);}
-			|	ContinueStm				{$$ = create_tree("Stm",1,$1);}
-			|	ReturnStm				{$$ = create_tree("Stm",1,$1);}
-			|	Block					{$$ = create_tree("Stm",1,$1);}
-			|	VarDecl					{$$ = create_tree("Stm",1,$1);}
-			|	TypeDecl				{$$ = create_tree("Stm",1,$1);}
-			|	';'						{$$ = create_tree("Stm",1,$1);}
-			;
-
-				// a[2]
-Exp:			Exp LBRACKET Exp RBRACKET %prec DOT
-			|	SIZEOF LPAREN IDENTIFIER RPAREN
-			|	SIZEOF LPAREN Exp RPAREN
-			|	SIZEOF LPAREN DataType RPAREN
-				// fun()
-			|	IDENTIFIER LPAREN ExpList RPAREN
-			|	Exp DOT IDENTIFIER
-			|	Exp ARW IDENTIFIER
-			|	'+' Exp %prec '!'
-			|	'-' Exp %prec '!'
-				// (int)a
-			|	LPAREN DataType RPAREN Exp %prec TYPE_CHANGE
-			|	INC_OP Exp %prec '!'
-			|	Exp INC_OP %prec DOT
-			|	DEC_OP Exp %prec '!'
-			|	Exp DEC_OP %prec DOT
-			|	'*' Exp %prec '!'
-			|	'&' Exp %prec '!'
-			|	'!' Exp %prec '!'
-			|	'~' Exp %prec '!'
-			|	Exp '/' Exp
-			|	Exp '*' Exp
-			|	Exp '%' Exp
-			|	Exp '+' Exp
-			|	Exp '-' Exp
-			|	Exp LEFT_OP Exp
-			|	Exp RIGHT_OP Exp
-			|	Exp GE_OP Exp
-			|	Exp '>' Exp
-			|	Exp LE_OP Exp
-			|	Exp '<' Exp
-			|	Exp EQ_OP Exp
-			|	Exp NEQ_OP Exp
-			|	Exp '&' Exp
-			|	Exp '^' Exp
-			|	Exp '|' Exp
-			|	Exp AND_OP Exp
-			|	Exp OR_OP Exp
-			|	Exp '?' Exp ':' Exp
-			|	Exp ASSIGN Exp
-			|	Exp MUL_ASSIGN Exp
-			|	Exp DIV_ASSIGN Exp
-			|	Exp MOD_ASSIGN Exp
-			|	Exp ADD_ASSIGN Exp
-			|	Exp SUB_ASSIGN Exp
-			|	Exp LEFT_ASSIGN Exp
-			|	Exp RIGHT_ASSIGN Exp
-			|	Exp AND_ASSIGN Exp
-			|	Exp XOR_ASSIGN Exp
-			|	Exp OR_ASSIGN Exp
-			|	LPAREN Exp RPAREN
-			|	IDENTIFIER
-			|	Constant
-			|	Exp	',' Exp
-			;
-
-IfStm:			IF LPAREN Exp RPAREN Stm ELSE Stm
-			|	IF LPAREN Exp RPAREN Stm
-			;
-
-ForStm:			FOR LPAREN Exp ';' Exp ';' Exp RPAREN Stm
-			|	FOR LPAREN VarDecl ';' Exp ';' Exp RPAREN Stm
-			;
-
-WhileStm:		WHILE LPAREN Exp RPAREN Stm
-			;
-
-DoStm:			DO Stm WHILE LPAREN Exp RPAREN ';'
-			;
-
-SwitchStm:		SWITCH LPAREN Exp RPAREN LBRACE CaseList RBRACE
-			;
-
-CaseList:		CaseList CaseStm
-			|
-			;
-
-CaseStm:		CASE Exp ':' Stms
-			|	DEFAULT ':' Stms
-			;
-
-ContinueStm:	CONTINUE ';'
-			;
-
-BreakStm:		BREAK
-			;
-
-ReturnStm:		RETURN ';'
-			|	RETURN Exp ';'
-			;
-
-Block:			LBRACE Stms RBRACE
-			;
-
-ExpList:		ExpList_ ',' Exp
-			|	Exp %prec ARGS
-			|
-			;
-
-ExpList_:		ExpList_ ',' Exp
-			|	Exp %prec ARGS
-			;
-Constant:		
-				CHARACTER
-			|	INTEGER
-			|	REAL
-			|	STRING
-			;
-
-%%
+	fclose(yyin);
+	return 0;
+}
