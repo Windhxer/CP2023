@@ -1,14 +1,16 @@
 %{
+#include <stdio.h>
+#include <fstream>
 #include <string>
 #include "tree.hpp"
-#include "Translator.hpp"
+#include "translator.hpp"
 using namespace std;
 
 extern char *yytext;
 extern int column;
 extern FILE * yyin;
 extern FILE * yyout;
-treeNode* root;
+treeNode* root = NULL;
 extern int yylineno;
 
 int yylex(void);
@@ -20,7 +22,7 @@ void yyerror(const char*);
 }
 %output "parser.cpp"
 
-%token <tN> IDENTIFIER CONSTANT STRING_LITERAL SIZEOF CONSTANT_INT CONSTANT_DOUBLE
+%token <tN> IDENTIFIER CONSTANT STRING_LITERAL SIZEOF CONSTANT_INT CONSTANT_DOUBLE CONSTANT_CHAR
 %token <tN> PTR_OP INC_OP DEC_OP LEFT_OP RIGHT_OP LE_OP GE_OP EQ_OP NE_OP
 %token <tN> AND_OP OR_OP MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN ADD_ASSIGN
 %token <tN> SUB_ASSIGN LEFT_ASSIGN RIGHT_ASSIGN AND_ASSIGN
@@ -44,7 +46,7 @@ void yyerror(const char*);
 %type <tN> declarator 
 
 %type <tN> parameter_list parameter_declaration identifier_list
-%type <tN> abstract_declarator initializer initializer_list designation designator_list
+%type <tN> /* abstract_declarator */ initializer initializer_list designation designator_list
 %type <tN> designator statement labeled_statement compound_statement block_item_list block_item expression_statement
 %type <tN> selection_statement iteration_statement jump_statement translation_unit external_declaration function_definition
 %type <tN> declaration_list
@@ -67,26 +69,23 @@ primary_expression:
 	|
 	TRUE {
 		$$ = new treeNode("primary_expression",1,$1);
-		// $$->type = "bool";
-		// $$->int_value = $1->int_value;
 	}
 	|
 	FALSE {
 		$$ = new treeNode("primary_expression",1,$1);
-		// $$->type = "bool";
-		// $$->int_value = $1->int_value;
 	}
 	| CONSTANT_INT {
-		//printf("%d",$1->int_value);
 		$$ = new treeNode("primary_expression",1,$1);
-		// $$->type = "int";
-		// $$->int_value = $1->int_value;
 		
 	}
 	| CONSTANT_DOUBLE {
 		$$ = new treeNode("primary_expression",1,$1);
-		// $$->type = "double";
-		// $$->double_value = $1->double_value;
+	}
+	| CONSTANT_CHAR {
+		$$ = new treeNode("primary_expression",1,$1);
+	}
+	| STRING_LITERAL {
+		$$ = new treeNode("primary_expression",1,$1);
 	}
 	| '(' expression ')'{
 		$$ = new treeNode("primary_expression",3,$1,$2,$3);
@@ -132,7 +131,6 @@ argument_expression_list:
 /*一元表达式*/
 unary_expression:
 	postfix_expression{
-		//printf("postfix");
 		$$ = new treeNode("unary_expression",1,$1);
 	}
 	| 	INC_OP unary_expression{
@@ -161,6 +159,12 @@ unary_operator:
 	}
 	| '!' {
 		$$ = new treeNode("unary_operator",1,$1);
+	}
+	| '*' {
+		$$ = new treeNode("unaru_operator",1,$1);
+	}
+	| '&' {
+		$$ = new treeNode("unaru_operator",1,$1);
 	}
 	;
 
@@ -421,19 +425,19 @@ declarator:
 		//变量
 		$$ = new treeNode("declarator",1,$1);
 	}
-	| '(' declarator ')' {
+	/* | '(' declarator ')' {
 		//.....
 		$$ = new treeNode("declarator",3,$1,$2,$3);
-	}
+	} */
 	| declarator '[' assignment_expression ']' {
 		//数组
 		//printf("assignment_expression");
 		$$ = new treeNode("declarator",4,$1,$2,$3,$4);
 	}
-	| declarator '[' '*' ']' {
+	/* | declarator '[' '*' ']' {
 		//....
 		$$ = new treeNode("declarator",4,$1,$2,$3,$4);
-	}
+	} */
 	| declarator '[' ']' {
 		//数组
 		$$ = new treeNode("declarator",3,$1,$2,$3);
@@ -467,9 +471,9 @@ parameter_declaration:
 	type_specifier declarator {
 		$$ = new treeNode("parameter_declaration",2,$1,$2);
 	}
-	| type_specifier abstract_declarator {
+	/* | type_specifier abstract_declarator {
 		$$ = new treeNode("parameter_declaration",2,$1,$2);
-	}
+	} */
 	| type_specifier {
 		$$ = new treeNode("parameter_declaration",1,$1);
 	}
@@ -484,7 +488,7 @@ identifier_list:
 	}
 	;
 
-abstract_declarator:
+/* abstract_declarator:
 	'(' abstract_declarator ')' {
 		$$ = new treeNode("abstract_declarator",3,$1,$2,$3);
 	}
@@ -518,21 +522,21 @@ abstract_declarator:
 	| abstract_declarator '(' parameter_list ')' {
 		$$ = new treeNode("abstract_declarator",4,$1,$2,$3,$4);
 	}
-	;
+	; */
 
 //初始化
 initializer:
 	assignment_expression {
 		$$ = new treeNode("initializer",1,$1);
 	}
-	| '{' initializer_list '}' {
+	/* | '{' initializer_list '}' {
 		//列表初始化 {1,1,1}
 		$$ = new treeNode("initializer",3,$1,$2,$3);
 	}
 	| '{' initializer_list ',' '}' {
 		//列表初始化 {1,1,1,}
 		$$ = new treeNode("initializer",4,$1,$2,$3,$4);
-	}
+	} */
 	;
 
 initializer_list:
@@ -710,20 +714,18 @@ external_declaration:
 	function_definition {
 		$$ = new treeNode("external_declaration",1,$1);
 		//函数定义
-		//printf("function_definition");
 	}
 	| declaration {
 		$$ = new treeNode("external_declaration",1,$1);
 		//变量声明
-		//printf("declaration");
 	}
 	;
 
 function_definition:
-	type_specifier declarator declaration_list compound_statement {
+	/* type_specifier declarator declaration_list compound_statement {
 		$$ = new treeNode("function_definition",4,$1,$2,$3,$4);
-	}
-	| type_specifier declarator compound_statement {
+	} */
+	type_specifier declarator compound_statement {
 		$$ = new treeNode("function_definition",3,$1,$2,$3);
 	}
 	;
@@ -748,12 +750,17 @@ void yyerror(char const *s)
 int main(int argc,char* argv[]) {
 	yyin = fopen(argv[1],"r");
 	
-	//freopen("output/output.txt","w", stdout);
 	yyparse();
 	printf("\n");
-	/* eval(root,0);	//输出语法分析树 */
+	ofstream treeOs;
+	treeOs.open("test/tree.txt");
+	root->printTree(0, treeOs);
 
-	/* Praser praser(root); */
+	translator *t = new translator(root);
+
+	ofstream innerCodeOs;
+	innerCodeOs.open("test/innerCode.txt");
+	t->innerCode.printCode(innerCodeOs);
 
 	/* freeGramTree(root); */
 

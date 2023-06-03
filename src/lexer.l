@@ -52,7 +52,7 @@ IS          ((u|U)|(u|U)?(l|L|ll|LL)|(l|L|ll|LL)(u|U))
 0[0-7]*{IS}?	{ count(); yylval.tN =new treeNode("CONSTANT_INT",0,yylineno);	return(CONSTANT_INT); /*8进制*/}
 [1-9]{D}*{IS}?	{ count(); yylval.tN =new treeNode("CONSTANT_INT",0,yylineno);	return(CONSTANT_INT); /*10进制*/}
 
-L?'(\\.|[^\\'\n])+'		{ count(); return(CONSTANT); }
+L?'(\\.|[^\\'\n])+'		{ count(); yylval.tN =new treeNode("CONSTANT_CHAR",0,yylineno); return(CONSTANT_CHAR); }
 
 {D}+{E}{FS}?				{ count(); yylval.tN =new treeNode("CONSTANT_DOUBLE",0,yylineno);	return(CONSTANT_DOUBLE); /*浮点数*/}
 {D}*"."{D}+{E}?{FS}?		{ count(); yylval.tN =new treeNode("CONSTANT_DOUBLE",0,yylineno);	return(CONSTANT_DOUBLE); /*浮点数*/}

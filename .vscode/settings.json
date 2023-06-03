@@ -1,12 +1,23 @@
 {
     "files.associations": {
-        "iostream": "cpp",
-        "ostream": "cpp",
-        "string_view": "cpp",
-        "*.tcc": "cpp",
-        "string": "cpp",
-        "cmath": "cpp",
-        "ratio": "cpp",
-        "typeinfo": "cpp"
-    }
+		"iostream": "cpp",
+		"ostream": "cpp",
+		"string_view": "cpp",
+		"*.tcc": "cpp",
+		"string": "cpp",
+		"cmath": "cpp",
+		"ratio": "cpp",
+		"typeinfo": "cpp",
+		"xstring": "cpp",
+		"istream": "cpp",
+		"memory": "cpp",
+		"tuple": "cpp",
+		"type_traits": "cpp",
+		"utility": "cpp",
+		"xlocnum": "cpp",
+		"xutility": "cpp",
+		"vector": "cpp",
+		"xtree": "cpp",
+		"new": "cpp"
+	}
 }

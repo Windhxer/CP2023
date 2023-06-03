@@ -1,6 +1,9 @@
+#include <iostream>
+#include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
 #include "tree.hpp"
+using namespace std;
 treeNode::treeNode(string name, int childrenNum, ...) : name(name), childrenNum(childrenNum)
 {
 	va_list valist;
@@ -62,7 +65,7 @@ treeNode::treeNode(string name, int childrenNum, ...) : name(name), childrenNum(
 
 treeNode *treeNode::firstChild()
 {
-	if (children.size() == 0)
+	if (childrenNum == 0)
 	{
 		return NULL;
 	}
@@ -71,9 +74,67 @@ treeNode *treeNode::firstChild()
 
 treeNode *treeNode::lastChild()
 {
-	if (children.size() == 0)
+	if (childrenNum == 0)
 	{
 		return NULL;
 	}
 	return children.back();
+}
+
+treeNode *treeNode::getChild(int index)
+{
+	if (index >= childrenNum || index < 0)
+	{
+		return NULL;
+	}
+	return children[index];
+}
+
+string varNode::getRepresentation()
+{
+	if (!isAddress)
+	{
+		// temp
+		if (num < 0)
+		{
+			return name;
+		}
+		else
+		{
+			return "var" + to_string(num);
+		}
+	}
+	else
+	{
+		if (num < 0)
+		{
+			return "*" + name;
+		}
+		else
+		{
+			return "*var" + to_string(num);
+		}
+	}
+}
+
+void treeNode::printTree(int degree, ofstream &os)
+{
+	string tab = "";
+	for (int i = 0; i < degree; i++)
+	{
+		tab += "  ";
+	}
+	if (childrenNum == 0)
+	{
+		os << tab << name << endl;
+	}
+	else
+	{
+		os << tab << name << endl << tab << "{" << endl;
+		for (int i = 0; i < childrenNum; i++)
+		{
+			children[i]->printTree(degree + 1, os);
+		}
+		os << tab << "}" << endl;
+	}
 }
