@@ -2,7 +2,7 @@
 #include <iostream>
 #include <stdio.h>
 #include "parser.hpp"
-#include "tree.hpp"
+#include "../src/tree.hpp"
 using namespace std;
 extern "C" int yywrap() {return 1;}
 
@@ -13,7 +13,7 @@ int column = 0;
 %}
 
 %option yylineno
-%option outfile="lexer.cpp"
+%option outfile="./out/lexer.cpp"
 
 D			[0-9]
 L			[a-zA-Z_]
@@ -137,5 +137,4 @@ void count(void)
 			column += 4 - (column % 4);
 		else
 			column++;
-	ECHO;
 }

@@ -1,24 +1,22 @@
-### 5.14添加
-在根目录下执行：
+### 构造方法
+1. 生成中间代码生成器
+在根目录执行：
 ```
 make
 ```
-或
-```
-make lexer_only_compile
-```
-即可完成构建
+即可构建中间代码生成器
 
-然后在根目录下执行：
+2. 验证测试程序
++ 在根目录执行：（需要环境中有 qemu-user 和 riscv64-unknown-elf-gcc ）
 ```
-make lexer_only_run
+make quickSort
+bash quickSort.sh
 ```
-即可将./other/quickSort_cmm.c进行词法分析，结果放在./out/lexer_only.txt
+即可验证快速排序程序
 
-### praser架构
-通过词法分析与语法分析构建语法树(参考http://www.quut.com/c/ANSI-C-grammar-l-1998.html
-和 http://www.quut.com/c/ANSI-C-grammar-y-1995.html)，而后在.y文件的main函数中对语法树进行分析生成中间代码，从而拆分代码结构
-根据yacc中的文法进行praser文件中函数的书写
-
-### innerCode
-innerCode.h/cpp文件里用来实现var变量等的记录并进行一定的优化
++ 在根目录执行：（需要环境中有 qemu-user 和 riscv64-unknown-elf-gcc ）
+```
+make quickSort
+bash matrix.sh
+```
+即可验证矩阵乘法程序

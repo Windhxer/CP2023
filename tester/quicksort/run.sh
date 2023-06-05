@@ -1,0 +1,1 @@
+qemu-riscv64 quicksort-linux-riscv64 ./quickSort

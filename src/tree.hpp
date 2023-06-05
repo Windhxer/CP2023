@@ -25,6 +25,7 @@ public:
 	int num = -1;
 	bool isAddress = false; // 判断指针类型，使其可以判断无struct等语法情况下的指针
 	string boolString;		 // 将bool变量囊括进普通变量中
+	string prefix = "";
 };
 
 // 函数节点
@@ -52,6 +53,7 @@ public:
 	funcNode *func = NULL;			   // 如果是函数，记录函数名
 	bool isfunc = false;			   // 记录是否是函数
 	map<string, varNode *> varMap;	   // 变量的map
+    map<string, varNode *> arrayMap;
 	string breakLabel;
 	bool canBreak = false;
 };

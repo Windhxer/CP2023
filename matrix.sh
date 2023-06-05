@@ -1,0 +1,1 @@
+qemu-riscv64 ./tester/matrix/matrix-linux-riscv64 ./tester/matrix/matrix

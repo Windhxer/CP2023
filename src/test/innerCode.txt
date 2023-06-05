@@ -1,6 +1,0 @@
-FUNCTION main :
-ARG var1
-ARG var0
-temp0 := "%d, %d"
-ARG temp0
-CALL scanf

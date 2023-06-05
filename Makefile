@@ -1,11 +1,25 @@
-all: lexer_only_compile
+.PHONY: all clean
 
-lexer_only_compile: ./src/lexer_only.l
-	flex ./src/lexer_only.l
-	g++ ./src/lexer_only.cpp -o ./out/lexer_only
-
-lexer_only_run: ./out/lexer_only
-	./out/lexer_only ./other/quickSort_cmm.c ./out/lexer_only.txt
+all: getInnerCode
 
 clean:
-	rm -f ./src/lexer_only.cpp ./out/lexer_only
+	rm -rf ./out/* ./tester/quicksort/quickSort
+
+flex: ./src/lexer.l
+	flex -o ./out/lexer.cpp ./src/lexer.l
+
+bison: ./src/parser.y
+	bison -d -o ./out/parser.cpp ./src/parser.y
+
+getInnerCode: flex bison ./src/tree.cpp ./src/translator.cpp ./src/innerCode.cpp
+	g++ -o ./out/getInnerCode ./out/lexer.cpp ./out/parser.cpp ./src/tree.cpp ./src/translator.cpp ./src/innerCode.cpp
+
+quickSort: ./out/getInnerCode ./code/quickSort.c
+	./out/getInnerCode ./code/quickSort.c ./out/quickSortTree.txt ./out/quickSortInnerCode.txt
+	python3 ./src/codeGenerator.py ./out/quickSortInnerCode.txt ./out/quickSortAsm.s
+	riscv64-unknown-elf-gcc -o ./tester/quicksort/quickSort ./out/quickSortAsm.s
+
+matrix: ./out/getInnerCode ./code/matrix.c
+	./out/getInnerCode ./code/matrix.c ./out/matrixTree.txt ./out/matrixInnerCode.txt
+	python3 ./src/codeGenerator.py ./out/matrixInnerCode.txt ./out/matrixAsm.s
+	riscv64-unknown-elf-gcc -o ./tester/matrix/matrix ./out/matrixAsm.s

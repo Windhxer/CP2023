@@ -92,28 +92,18 @@ treeNode *treeNode::getChild(int index)
 
 string varNode::getRepresentation()
 {
-	if (!isAddress)
+	// temp
+	if (num < 0)
 	{
-		// temp
-		if (num < 0)
-		{
-			return name;
-		}
-		else
-		{
-			return "var" + to_string(num);
-		}
+		return prefix + name;
 	}
 	else
 	{
-		if (num < 0)
-		{
-			return "*" + name;
-		}
-		else
-		{
-			return "*var" + to_string(num);
-		}
+		if (type.find("array") != string::npos)
+        {
+            return prefix + "array" + to_string(num);
+        }
+        return prefix + "var" + to_string(num);
 	}
 }
 

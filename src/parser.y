@@ -2,8 +2,8 @@
 #include <stdio.h>
 #include <fstream>
 #include <string>
-#include "tree.hpp"
-#include "translator.hpp"
+#include "../src/tree.hpp"
+#include "../src/translator.hpp"
 using namespace std;
 
 extern char *yytext;
@@ -20,7 +20,7 @@ void yyerror(const char*);
 %union{
 	class treeNode* tN;
 }
-%output "parser.cpp"
+%output "./out/parser.cpp"
 
 %token <tN> IDENTIFIER CONSTANT STRING_LITERAL SIZEOF CONSTANT_INT CONSTANT_DOUBLE CONSTANT_CHAR
 %token <tN> PTR_OP INC_OP DEC_OP LEFT_OP RIGHT_OP LE_OP GE_OP EQ_OP NE_OP
@@ -161,10 +161,10 @@ unary_operator:
 		$$ = new treeNode("unary_operator",1,$1);
 	}
 	| '*' {
-		$$ = new treeNode("unaru_operator",1,$1);
+		$$ = new treeNode("unary_operator",1,$1);
 	}
 	| '&' {
-		$$ = new treeNode("unaru_operator",1,$1);
+		$$ = new treeNode("unary_operator",1,$1);
 	}
 	;
 
@@ -752,15 +752,18 @@ int main(int argc,char* argv[]) {
 	
 	yyparse();
 	printf("\n");
-	ofstream treeOs;
-	treeOs.open("test/tree.txt");
-	root->printTree(0, treeOs);
 
-	translator *t = new translator(root);
-
-	ofstream innerCodeOs;
-	innerCodeOs.open("test/innerCode.txt");
-	t->innerCode.printCode(innerCodeOs);
+    if (argc == 4)
+    {
+        ofstream treeOs;
+        treeOs.open(argv[2]);
+        root->printTree(0, treeOs);
+        translator *t = new translator(root);
+        
+    	ofstream innerCodeOs;
+	    innerCodeOs.open(argv[3]);
+	    t->innerCode.printCode(innerCodeOs);
+    }
 
 	/* freeGramTree(root); */
 

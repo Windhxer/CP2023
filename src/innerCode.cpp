@@ -17,7 +17,6 @@ void innerCode::printCode(ofstream &os)
 	for (int i = 0; i < codeList.size(); i++)
 	{
 		os << codeList[i] << endl;
-		cout << codeList[i] << endl;
 	}
 }
 
