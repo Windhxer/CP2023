@@ -44,3 +44,69 @@ string innerCode::createCodeForReturn(varNode* node)
 {
 	return "RETURN " + node->getRepresentation();
 }
+
+void innerCode::addCodeForAssignment(string destination, string source)
+{
+	addCode(destination + " := " + source);
+}
+void innerCode::addCodeForAssignment(string destination, string source1, string op, string source2)
+{
+	addCode(destination + " := " + source1 + " " + op + " " + source2);
+}
+void innerCode::addCodeForParameter(string parameter)
+{
+	addCode("PARAM " + parameter);
+}
+void innerCode::addCodeForArgument(string argument)
+{
+	addCode("ARG " + argument);
+}
+void innerCode::addCodeForArray(string arrayName, string step, string size)
+{
+	addCode("ARRAY " + arrayName + " " + step + " * " + size);
+}
+
+void innerCode::addCodeForFunction(string funcName)
+{
+	addCode("FUNCTION " + funcName);
+}
+
+void innerCode::addCodeForEnd()
+{
+	addCode("END");
+}
+
+void innerCode::addCodeForCall(string funcName)
+{
+	addCode("CALL " + funcName);
+}
+
+void innerCode::addCodeForCallAssignment(string destination, string funcName)
+{
+	addCode(destination + " := CALL " + funcName);
+}
+
+void innerCode::addCodeForIf(string condition, string label)
+{
+	addCode("IF " + condition + " GOTO " + label);
+}
+
+void innerCode::addCodeForGoto(string label)
+{
+	addCode("GOTO " + label);
+}
+
+void innerCode::addCodeForLabel(string label)
+{
+	addCode("LABEL " + label);
+}
+
+void innerCode::addCodeForReturn()
+{
+	addCode("RETURN");
+}
+
+void innerCode::addCodeForReturn(string data)
+{
+	addCode("RETURN " + data);
+}

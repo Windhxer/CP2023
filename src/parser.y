@@ -43,7 +43,7 @@ void yyerror(const char*);
 
 %type <tN> declaration init_declarator_list init_declarator type_specifier
 
-%type <tN> declarator 
+%type <tN> declarator direct_declarator pointer
 
 %type <tN> parameter_list parameter_declaration identifier_list
 %type <tN> /* abstract_declarator */ initializer initializer_list designation designator_list
@@ -418,41 +418,49 @@ type_specifier:
 	}
 	;
 
-
-
 declarator:
-	IDENTIFIER {
-		//变量
+	pointer direct_declarator {
+		$$ = new treeNode("declarator",2,$1,$2);
+	}
+	| direct_declarator {
 		$$ = new treeNode("declarator",1,$1);
 	}
-	/* | '(' declarator ')' {
-		//.....
-		$$ = new treeNode("declarator",3,$1,$2,$3);
-	} */
-	| declarator '[' assignment_expression ']' {
+	;
+
+pointer:
+	'*' {
+		$$ = new treeNode("pointer",1,$1);
+	}
+	| '*' pointer {
+		$$ = new treeNode("pointer",2,$1,$2);
+	}
+	;
+
+direct_declarator:
+	IDENTIFIER {
+		//变量
+		$$ = new treeNode("direct_declarator",1,$1);
+	}
+	| direct_declarator '[' assignment_expression ']' {
 		//数组
 		//printf("assignment_expression");
-		$$ = new treeNode("declarator",4,$1,$2,$3,$4);
+		$$ = new treeNode("direct_declarator",4,$1,$2,$3,$4);
 	}
-	/* | declarator '[' '*' ']' {
-		//....
-		$$ = new treeNode("declarator",4,$1,$2,$3,$4);
-	} */
-	| declarator '[' ']' {
+	| direct_declarator '[' ']' {
 		//数组
-		$$ = new treeNode("declarator",3,$1,$2,$3);
+		$$ = new treeNode("direct_declarator",3,$1,$2,$3);
 	}
-	| declarator '(' parameter_list ')' {
+	| direct_declarator '(' parameter_list ')' {
 		//函数
-		$$ = new treeNode("declarator",4,$1,$2,$3,$4);
+		$$ = new treeNode("direct_declarator",4,$1,$2,$3,$4);
 	}
-	| declarator '(' identifier_list ')' {
+	| direct_declarator '(' identifier_list ')' {
 		//函数
-		$$ = new treeNode("declarator",4,$1,$2,$3,$4);
+		$$ = new treeNode("direct_declarator",4,$1,$2,$3,$4);
 	}
-	| declarator '(' ')' {
+	| direct_declarator '(' ')' {
 		//函数
-		$$ = new treeNode("declarator",3,$1,$2,$3);
+		$$ = new treeNode("direct_declarator",3,$1,$2,$3);
 	}
 	;
 

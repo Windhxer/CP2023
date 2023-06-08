@@ -23,6 +23,7 @@ public:
 	string getFuncReturnType();
 	string createLabel();
     varNode *createArray(string name, string type);
+	string getPointerType(treeNode *pointer, string type);
 
 	void translateInit();
 	void translateProgram(treeNode *node);
@@ -58,6 +59,8 @@ public:
 	void translateSelectionStatement(treeNode *selectionStatement);
 	void translateIterationStatement(treeNode *iterationStatement);
 	void translateJumpStatement(treeNode *jumpStatement);
+
+	varNode *translateDirectDeclarator(string type, treeNode *directDeclarator);
 
 	map<string, funcNode *> funcPool; // 函数池
 	vector<Block *> blockStack;		  // 维护的栈

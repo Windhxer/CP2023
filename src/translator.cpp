@@ -40,7 +40,6 @@ varNode *translator::createArray(string name, string type)
     return array;
 }
 
-// flag 表示需要分配varNum并插入到block中
 varNode *translator::createVar(string name, string type)
 {
 	varNode *var = new varNode(name, type, innerCode.varNum++);
@@ -58,6 +57,16 @@ varNode *translator::findVar(string varName)
 		}
 	}
 	return NULL;
+}
+
+string translator::getPointerType(treeNode *pointer, string type)
+{
+	while (pointer->name != "*")
+	{
+		type = "pointer_" + type;
+		pointer = pointer->lastChild();
+	}
+	return type;
 }
 
 string translator::getFuncReturnType()
@@ -84,12 +93,12 @@ void translator::translateInit()
 
 	funcNode *printfNode = new funcNode("printf", "void");
 	printfNode->parameterVariable = true;
-	printfNode->paralist.push_back(new varNode("string"));
+	printfNode->paralist.push_back(new varNode("pointer_char"));
 	funcPool.insert({"printf", printfNode});
 
 	funcNode *scanfNode = new funcNode("scanf", "void");
 	scanfNode->parameterVariable = true;
-	scanfNode->paralist.push_back(new varNode("string"));
+	scanfNode->paralist.push_back(new varNode("pointer_char"));
 	funcPool.insert({"scanf", scanfNode});
 
 	translateProgram(root);
@@ -157,131 +166,113 @@ void translator::translateInitDeclarator(treeNode *typeNode, treeNode *initDecla
 // 无初始化
 void translator::translateDeclarator(treeNode *typeNode, treeNode *declarator)
 {
-	// 普通变量
 	if (declarator->childrenNum == 1)
 	{
-		// 变量不能是void
-		if (typeNode->content == "void")
-		{
-			printErrorMsg(typeNode->line, "Variables cannot be declared as void!");
-			exit(1);
-		}
-		treeNode *identifier = declarator->firstChild();
-
-		if (varDefined(identifier->content))
-		{
-			printErrorMsg(identifier->line, "Variable redefinition!");
-			exit(1);
-		}
-
-		createVar(identifier->content, typeNode->content);
+		translateDirectDeclarator(typeNode->content, declarator->lastChild());
 	}
-
-	// 数组
-	else if (declarator->getChild(1)->name == "[")
+	else
 	{
-		if (declarator->childrenNum == 3)
-		{
-			printErrorMsg(declarator->line, "Array size not specified!");
-			exit(1);
-		}
-		string arrayName = declarator->firstChild()->firstChild()->content;
-		if (this->varDefined(arrayName))
-		{
-			printErrorMsg(declarator->line, "Variable redefinition!");
-			exit(1);
-		}
-
-		varNode *sizeNode = translateAssignmentExpression(declarator->getChild(2));
-		if (sizeNode->type != "int")
-		{
-			printErrorMsg(declarator->line, "The array size must be an integer!");
-			exit(1);
-		}
-
-		varNode *temp1 = createTemp("int");
-		varNode *temp2 = createTemp("int");
-		if (typeNode->content == "int")
-		{
-			innerCode.addCode(temp1->name + " := I8");
-		}
-		else if (typeNode->content == "double")
-		{
-			innerCode.addCode(temp1->name + " := I8");
-		}
-		else if (typeNode->content == "char")
-		{
-			innerCode.addCode(temp1->name + " := I1");
-		}
-		else if (typeNode->content == "bool")
-		{
-		}
-
-		varNode *array = createArray(arrayName, "array_" + typeNode->content);
-		// array->isAddress = true;
-		innerCode.addCode(temp2->name + " := " + temp1->name + " * " + sizeNode->getRepresentation());
-		innerCode.addCode("ARRAY " + array->getRepresentation() + " " + temp2->name);
+		translateDirectDeclarator(getPointerType(declarator->firstChild(), typeNode->content), declarator->lastChild());
 	}
-
-	// 函数
-	// else if (declarator->getChild(1)->name == "(") {
-	// 	string funcName = declarator->firstChild()->firstChild()->content;
-	// 	if (blockStack.size() != 1) {
-	// 		printErrorMsg(declarator->line, "Functions can only be defined globally!");
-	// 		exit(1);
-	// 	}
-	// 	if (findFunc(funcName)) {
-	// 		printErrorMsg(declarator->line, "The function is redefined!");
-	// 		exit(1);
-	// 	}
-
-	// 	funcNode* func = new funcNode(funcName, typeNode->content);
-
-	// 	if (declarator->getChild(2)->name == "parameter_list") {
-
-	// 	}
-	// 	else if (declarator->getChild(2)->name == "identifier_list") {
-
-	// 	}
-	// 	else {
-
-	// 	}
-	// }
 }
 
 // 有初始化
 void translator::translateDeclarator(treeNode *typeNode, treeNode *declarator, treeNode *initializer)
 {
-	if (declarator->firstChild()->name != "IDENTIFIER")
+	string type;
+	if (declarator->childrenNum == 2)
+	{
+		type = getPointerType(declarator->firstChild(), typeNode->content);
+	}
+	else
+	{
+		type = typeNode->content;
+	}
+
+	treeNode *directDeclarator = declarator->lastChild();
+	if (directDeclarator->childrenNum != 1)
 	{
 		printErrorMsg(declarator->line, "Complex variables cannot be initialized!");
 		exit(1);
 	}
 
-	if (varDefined(declarator->firstChild()->content))
-	{
-		printErrorMsg(declarator->line, "The variable is redefined!");
-		exit(1);
-	}
-
-	varNode *var = createVar(declarator->firstChild()->content, typeNode->content);
+	varNode *var = translateDirectDeclarator(type, directDeclarator);
 	varNode *value = translateAssignmentExpression(initializer->firstChild());
-	if (value->type != typeNode->content)
+	if (var->type != value->type)
 	{
-		printErrorMsg(initializer->line, "Different data types are initialized!");
+		printErrorMsg(declarator->line, "Different data types are initialized!");
 		exit(1);
 	}
-	innerCode.addCode(innerCode.createCodeForAssign(var, value));
+	innerCode.addCodeForAssignment(var->getRepresentation(), value->getRepresentation());
 }
+
+varNode *translator::translateDirectDeclarator(string type, treeNode *directDeclarator)
+{
+	// 普通变量
+	if (directDeclarator->childrenNum == 1)
+	{
+		if (type == "void")
+		{
+			printErrorMsg(directDeclarator->line, "Variables cannot be declared as void!");
+			exit(1);
+		}
+		treeNode *identifier = directDeclarator->firstChild();
+		if (varDefined(identifier->content))
+		{
+			printErrorMsg(identifier->line, "Variable redefinition!");
+			exit(1);
+		}
+		return createVar(identifier->content, type);
+	}
+	// 数组
+	else if (directDeclarator->getChild(1)->name == "[")
+	{
+		if (directDeclarator->childrenNum == 3)
+		{
+			printErrorMsg(directDeclarator->line, "Array size not specified!");
+			exit(1);
+		}
+		string arrayName = directDeclarator->firstChild()->content;
+		if (varDefined(arrayName))
+		{
+			printErrorMsg(directDeclarator->line, "Variable redefinition!");
+			exit(1);
+		}
+		varNode *sizeNode = translateAssignmentExpression(directDeclarator->getChild(2));
+		if (sizeNode->type != "int")
+		{
+			printErrorMsg(directDeclarator->line, "The array size must be an integer!");
+			exit(1);
+		}
+
+		varNode *temp1 = createTemp("int");
+		innerCode.addCodeForAssignment(temp1->getRepresentation(), "I" + to_string(varNode::getSize(type)));
+		varNode *array = createVar(arrayName, "pointer_" + type);
+		innerCode.addCodeForArray(array->getRepresentation(), temp1->getRepresentation(), sizeNode->getRepresentation());
+		return array;
+	}
+}
+
 
 void translator::translateFunctionDefinition(treeNode *functionDefinition)
 {
 	treeNode *typeSpecifier = functionDefinition->firstChild();
 	treeNode *declarator = functionDefinition->getChild(1);
+	treeNode *directDeclarator = declarator->lastChild();
 	treeNode *compoundStatement = functionDefinition->lastChild();
 
-	string returnType = typeSpecifier->firstChild()->content;
-	string funcName = declarator->firstChild()->firstChild()->content;
+	string returnType;
+	if (declarator->childrenNum == 2)
+	{
+		returnType = getPointerType(declarator->firstChild(), typeSpecifier->content);
+	}
+	else
+	{
+		returnType = typeSpecifier->firstChild()->content;
+	}
+
+
+	string funcName = directDeclarator->firstChild()->content;
 
 	funcNode *tempFunc = NULL;
 	// 函数池已存在该函数
@@ -296,25 +287,24 @@ void translator::translateFunctionDefinition(treeNode *functionDefinition)
 		tempFunc = funcPool[funcName];
 		funcPool.erase(funcPool.find(funcName));
 	}
-
 	funcNode *func = new funcNode(funcName, returnType);
 	func->isdefinied = true;
 	funcPool.insert({funcName, func});
 	Block *funcBlock = new Block(func);
 	blockStack.push_back(funcBlock);
-
-	innerCode.addCode("FUNCTION " + funcName + " :");
-
-	if (declarator->getChild(2)->name == "parameter_list")
+	
+	innerCode.addCodeForFunction(funcName);
+	
+	if (directDeclarator->getChild(2)->name == "parameter_list")
 	{
-		translateParameterList(declarator->getChild(2), func, true);
+		
+		translateParameterList(directDeclarator->getChild(2), func, true);
 	}
-	else if (declarator->getChild(2)->name == "identifier_list")
+	else if (directDeclarator->getChild(2)->name == "identifier_list")
 	{
 		printErrorMsg(functionDefinition->line, "The format of the function argument is incorrect!");
 		exit(1);
 	}
-
 	// 比较声明时和定义时是否相当
 	if (tempFunc != NULL)
 	{
@@ -342,7 +332,7 @@ void translator::translateFunctionDefinition(treeNode *functionDefinition)
 
 	blockStack.pop_back();
 
-    innerCode.addCode("END");
+	innerCode.addCodeForEnd();
 }
 
 void translator::translateParameterList(treeNode *parameterList, funcNode *func, bool isDefinition)
@@ -362,7 +352,7 @@ void translator::translateParameterDeclaration(treeNode *parameterDeclaration, f
 {
 	if (isDefinition)
 	{
-		if (parameterDeclaration->childrenNum == 1 && parameterDeclaration->firstChild()->firstChild()->name == "VOID")
+		if (parameterDeclaration->childrenNum == 1 && parameterDeclaration->firstChild()->content == "void")
 		{
 			return;
 		}
@@ -373,36 +363,40 @@ void translator::translateParameterDeclaration(treeNode *parameterDeclaration, f
 			exit(1);
 		}
 
-		treeNode *typeNode = parameterDeclaration->firstChild();
-		if (typeNode->firstChild()->name == "VOID")
+		treeNode *declarator = parameterDeclaration->lastChild();
+		string type = parameterDeclaration->firstChild()->content;
+		if (declarator->childrenNum == 2)
+		{
+			type = getPointerType(declarator->firstChild(), type);
+		}
+
+		treeNode *directDeclarator = declarator->lastChild();
+		if (type == "void")
 		{
 			printErrorMsg(parameterDeclaration->line, "Function argument type cannot be void!");
 			exit(1);
 		}
 
-		treeNode *declarator = parameterDeclaration->lastChild();
-
 		// 简单数据类型的参数
-		if (declarator->childrenNum == 1)
+		if (directDeclarator->childrenNum == 1)
 		{
-			varNode *var = createVar(declarator->firstChild()->content, typeNode->content);
+			varNode *var = createVar(directDeclarator->content, type);
 			func->paralist.push_back(var);
-			innerCode.addCode(innerCode.createCodeForParameter(var));
+			innerCode.addCodeForParameter(var->getRepresentation());
 		}
 		// 数组作为参数，只考虑一维数组
-		else if (declarator->getChild(1)->name == "[")
+		else if (directDeclarator->getChild(1)->name == "[")
 		{
 			// 只能是 void fun(int a[]) 的形式
 			// 即 declarator:	declarator	'[' ']'
-			if (declarator->childrenNum != 3)
+			if (directDeclarator->childrenNum != 3)
 			{
 				printErrorMsg(parameterDeclaration->line, "Incorrect parameter type!");
 				exit(1);
 			}
-
-			varNode *array = createArray(declarator->firstChild()->content, "array_" + typeNode->content);
+			varNode *array = createVar(directDeclarator->firstChild()->content, "pointer_" + type);
 			func->paralist.push_back(array);
-			innerCode.addCode(innerCode.createCodeForParameter(array));
+			innerCode.addCodeForParameter(array->getRepresentation());
 		}
 	}
 }
@@ -421,7 +415,7 @@ varNode *translator::translateAssignmentExpression(treeNode *assignmentExpressio
 		{
 			if (assignmentExpression->getChild(1)->firstChild()->name == "=")
 			{
-				innerCode.addCode(innerCode.createCodeForAssign(unaryExpressionNode, assignmentExpressionNode));
+				innerCode.addCodeForAssignment(unaryExpressionNode->getRepresentation(), assignmentExpressionNode->getRepresentation());
 				return unaryExpressionNode;
 			}
 			// +=, -+, ...
@@ -533,7 +527,7 @@ varNode *translator::translateLogicalOrExpression(treeNode *logicalOrExpression)
 		}
 
 		varNode *temp = createTemp("bool");
-		innerCode.addCode(innerCode.createCodeForVar(temp->name, "||", node1, node2));
+		innerCode.addCodeForAssignment(temp->getRepresentation(), node1->getRepresentation(), "||", node2->getRepresentation());
 
 		temp->boolString = node1->getRepresentation() + " || " + node2->getRepresentation();
 		return temp;
@@ -556,7 +550,7 @@ varNode *translator::translateLogicalAndExpression(treeNode *logicalAndExpressio
 	}
 
 	varNode *temp = createTemp("bool");
-	innerCode.addCode(innerCode.createCodeForVar(temp->name, "&&", node1, node2));
+	innerCode.addCodeForAssignment(temp->getRepresentation(), node1->getRepresentation(), "&&", node2->getRepresentation());
 
 	temp->boolString = node1->getRepresentation() + " && " + node2->getRepresentation();
 	return temp;
@@ -578,7 +572,8 @@ varNode *translator::translateInclusiveOrExpression(treeNode *inclusiveOrExpress
 	}
 
 	varNode *temp = createTemp("int");
-	innerCode.addCode(innerCode.createCodeForVar(temp->name, "|", node1, node2));
+		innerCode.addCodeForAssignment(temp->getRepresentation(), node1->getRepresentation(), "|", node2->getRepresentation());
+
 
 	return temp;
 }
@@ -599,7 +594,8 @@ varNode *translator::translateExclusiveOrExpression(treeNode *exclusiveOrExpress
 	}
 
 	varNode *temp = createTemp("int");
-	innerCode.addCode(innerCode.createCodeForVar(temp->name, "^", node1, node2));
+	innerCode.addCodeForAssignment(temp->getRepresentation(), node1->getRepresentation(), "^", node2->getRepresentation());
+
 
 	return temp;
 }
@@ -620,7 +616,8 @@ varNode *translator::translateAndExpression(treeNode *andExpression)
 	}
 
 	varNode *temp = createTemp("int");
-	innerCode.addCode(innerCode.createCodeForVar(temp->name, "&", node1, node2));
+	innerCode.addCodeForAssignment(temp->getRepresentation(), node1->getRepresentation(), "&", node2->getRepresentation());
+
 
 	return temp;
 }
@@ -643,7 +640,8 @@ varNode *translator::translateEqualityExpression(treeNode *equalityExpression)
 	}
 	varNode *temp = createTemp("bool");
 	temp->boolString = node1->getRepresentation() + " " + op + " " + node2->getRepresentation();
-	innerCode.addCode(innerCode.createCodeForVar(temp->name, op, node1, node2));
+	innerCode.addCodeForAssignment(temp->getRepresentation(), node1->getRepresentation(), op, node2->getRepresentation());
+
 
 	return temp;
 }
@@ -676,7 +674,8 @@ varNode *translator::translateRelationalExpression(treeNode *relationalExpressio
 
 	varNode *temp = createTemp("bool");
 	temp->boolString = node1->getRepresentation() + " " + op + " " + node2->getRepresentation();
-	innerCode.addCode(innerCode.createCodeForVar(temp->name, op, node1, node2));
+	innerCode.addCodeForAssignment(temp->getRepresentation(), node1->getRepresentation(), op, node2->getRepresentation());
+
 
 	return temp;
 }
@@ -705,7 +704,8 @@ varNode *translator::translateShiftExpression(treeNode *shiftExpression)
 	}
 
 	varNode *temp = createTemp("int");
-	innerCode.addCode(innerCode.createCodeForVar(temp->name, op, node1, node2));
+	innerCode.addCodeForAssignment(temp->getRepresentation(), node1->getRepresentation(), op, node2->getRepresentation());
+
 
 	return temp;
 }
@@ -727,7 +727,8 @@ varNode *translator::translateAdditiveExpression(treeNode *additiveExpression)
 	}
 
 	varNode *temp = createTemp(node1->type);
-	innerCode.addCode(innerCode.createCodeForVar(temp->name, op, node1, node2));
+	innerCode.addCodeForAssignment(temp->getRepresentation(), node1->getRepresentation(), op, node2->getRepresentation());
+
 
 	return temp;
 }
@@ -749,7 +750,8 @@ varNode *translator::translateMultiplicativeExpression(treeNode *multiplicativeE
 	}
 
 	varNode *temp = createTemp(node1->type);
-	innerCode.addCode(innerCode.createCodeForVar(temp->name, op, node1, node2));
+	innerCode.addCodeForAssignment(temp->getRepresentation(), node1->getRepresentation(), op, node2->getRepresentation());
+
 
 	return temp;
 }
@@ -771,8 +773,8 @@ varNode *translator::translateUnaryExpression(treeNode *unaryExpression)
 		}
 
 		varNode *temp = createTemp("int");
-		innerCode.addCode(temp->name + " := I1");
-		innerCode.addCode(node->getRepresentation() + " := " + node->getRepresentation() + " + " + temp->name);
+		innerCode.addCodeForAssignment(temp->getRepresentation(), "I1");
+		innerCode.addCodeForAssignment(node->getRepresentation(), node->getRepresentation(), "+", temp->getRepresentation());
 		return node;
 	}
 	else if (unaryExpression->firstChild()->name == "DEC_OP")
@@ -785,43 +787,64 @@ varNode *translator::translateUnaryExpression(treeNode *unaryExpression)
 		}
 
 		varNode *temp = createTemp("int");
-		innerCode.addCode(temp->name + " := I1");
-		innerCode.addCode(node->getRepresentation() + " := " + node->getRepresentation() + " - " + temp->name);
+		innerCode.addCodeForAssignment(temp->getRepresentation(), "I1");
+		innerCode.addCodeForAssignment(node->getRepresentation(), node->getRepresentation(), "-", temp->getRepresentation());
 		return node;
 	}
 	else if (unaryExpression->firstChild()->name == "unary_operator")
 	{
 		string op = unaryExpression->firstChild()->firstChild()->name;
-		varNode *node = translateUnaryExpression(unaryExpression->lastChild());
+		varNode *unaryExpressionNode = translateUnaryExpression(unaryExpression->lastChild());
 		if (op == "+")
 		{
-			if (node->type != "int" && node->type != "double")
+			if (unaryExpressionNode->type != "int" && unaryExpressionNode->type != "double")
 			{
 				printErrorMsg(unaryExpression->line, "Operator '+' can only use int or double!");
 				exit(1);
 			}
-			return node;
+			return unaryExpressionNode;
 		}
 		else if (op == "-")
 		{
-			if (node->type != "int" && node->type != "double")
+			if (unaryExpressionNode->type != "int" && unaryExpressionNode->type != "double")
 			{
 				printErrorMsg(unaryExpression->line, "Operator '-' can only be used in int or double!");
 				exit(1);
 			}
 
-			varNode *temp = createTemp(node->type);
-			innerCode.addCode(temp->name + " := I0");
+			varNode *temp = createTemp(unaryExpressionNode->type);
+			innerCode.addCodeForAssignment(temp->getRepresentation(), "I0");
 
-			varNode *temp1 = createTemp(node->type);
-
-			innerCode.addCode(temp1->name + " := " + temp->name + " - " + node->getRepresentation());
+			varNode *temp1 = createTemp(unaryExpressionNode->type);
+			innerCode.addCodeForAssignment(temp1->getRepresentation(), temp->getRepresentation(), "-", unaryExpressionNode->getRepresentation());
 
 			return temp1;
 		}
-		else if (op == "&") {
-			varNode *temp = createTemp(node->type);
-			innerCode.addCode(temp->getRepresentation() + " := &" + node->getRepresentation());
+		else if (op == "&")
+		{
+			varNode *temp = createTemp("pointer_" + unaryExpressionNode->type);
+            size_t pos = unaryExpressionNode->getRepresentation().find("*");
+            if (pos != string::npos)
+            {
+                innerCode.addCodeForAssignment(temp->getRepresentation(), unaryExpressionNode->getRepresentation().substr(pos + 1));
+            }
+            else
+            {
+			    innerCode.addCodeForAssignment(temp->getRepresentation(), "8&" + unaryExpressionNode->getRepresentation());
+            }
+			return temp;
+		}
+		else if (op == "*")
+		{
+			varNode *temp = createTemp(unaryExpressionNode->type);
+            // 地址传递
+			innerCode.addCodeForAssignment(temp->getRepresentation(), unaryExpressionNode->getRepresentation());
+            if (temp->type.find("pointer") != string::npos)
+            {
+
+            }
+			temp->representation = to_string(varNode::getSize(varNode::getPointedDataType(unaryExpressionNode->type))) + "*" + temp->getRepresentation();
+			temp->type = varNode::getPointedDataType(temp->type);
 			return temp;
 		}
 		// ~, !等
@@ -844,36 +867,26 @@ varNode *translator::translatePostfixExpression(treeNode *postfixExpression)
 		if (postfixExpression->firstChild()->childrenNum == 1)
 		{
 			varNode *array = translatePostfixExpression(postfixExpression->firstChild());
-			if (array->type.substr(0, 5) != "array")
+			if (array->type.find("pointer") == string::npos)
 			{
 				printErrorMsg(postfixExpression->line, "This is not an array variable!");
 				exit(1);
 			}
 
-			string arrayDataType = array->type.substr(6);
+			string arrayDataType = varNode::getPointedDataType(array->type);
 			varNode *expression = translateExpression(postfixExpression->getChild(2));
 
 			// temp->isAddress = true;
 
 			varNode *temp1 = createTemp("int");
 			varNode *temp2 = createTemp("int");
-			varNode *temp3 = createTemp(arrayDataType);
+			varNode *temp3 = createTemp(array->type);
 
-			if (arrayDataType == "int")
-			{
-				innerCode.addCode(temp1->name + " := I8");
-			}
-			else if (arrayDataType == "double")
-			{
-				innerCode.addCode(temp1->name + " := I8");
-			}
-			else if (arrayDataType == "char")
-			{
-				innerCode.addCode(temp1->name + " := I1");
-			}
-			innerCode.addCode(temp2->name + " := " + expression->getRepresentation() + " * " + temp1->getRepresentation());
-			innerCode.addCode(temp3->name + " := " + array->getRepresentation() + " + " + temp2->getRepresentation());
-			temp3->prefix = "*" + temp3->prefix;
+			innerCode.addCodeForAssignment(temp1->getRepresentation(), "I" + to_string(varNode::getSize(arrayDataType)));
+			innerCode.addCodeForAssignment(temp2->getRepresentation(), temp1->getRepresentation(), "*", expression->getRepresentation());
+			innerCode.addCodeForAssignment(temp3->getRepresentation(), array->getRepresentation(), "+", temp2->getRepresentation());
+			temp3->representation = to_string(varNode::getSize(arrayDataType)) + "*" + temp3->getRepresentation();
+			temp3->type = arrayDataType;
 			return temp3;
 		}
 	}
@@ -898,13 +911,13 @@ varNode *translator::translatePostfixExpression(treeNode *postfixExpression)
 		funcNode *func = funcPool[funcName];
 		if (func->returnType == "void")
 		{
-			innerCode.addCode("CALL " + funcName);
+			innerCode.addCodeForCall(funcName);
 			return new varNode("void");
 		}
 		else
 		{
 			varNode *temp = createTemp(func->returnType);
-			innerCode.addCode(temp->name + " := CALL " + funcName);
+			innerCode.addCodeForCallAssignment(temp->getRepresentation(), funcName);
 			return temp;
 		}
 	}
@@ -918,11 +931,11 @@ varNode *translator::translatePostfixExpression(treeNode *postfixExpression)
 		}
 
 		varNode *temp1 = createTemp("int");
-		innerCode.addCode(temp1->name + " := " + postfixExpressionNode->getRepresentation());
+		innerCode.addCodeForAssignment(temp1->getRepresentation(), postfixExpressionNode->getRepresentation());
 
 		varNode *temp2 = createTemp("int");
-		innerCode.addCode(temp2->name + " := I1");
-		innerCode.addCode(postfixExpressionNode->getRepresentation() + " := " + postfixExpressionNode->getRepresentation() + " + " + temp2->name);
+		innerCode.addCodeForAssignment(temp2->getRepresentation(), "I1");
+		innerCode.addCodeForAssignment(postfixExpressionNode->getRepresentation(), postfixExpressionNode->getRepresentation(), "+", temp2->getRepresentation());
 
 		return temp1;
 	}
@@ -936,11 +949,11 @@ varNode *translator::translatePostfixExpression(treeNode *postfixExpression)
 		}
 
 		varNode *temp1 = createTemp("int");
-		innerCode.addCode(temp1->name + " := " + postfixExpressionNode->getRepresentation());
+		innerCode.addCodeForAssignment(temp1->getRepresentation(), postfixExpressionNode->getRepresentation());
 
 		varNode *temp2 = createTemp("int");
-		innerCode.addCode(temp2->name + " := I1");
-		innerCode.addCode(postfixExpressionNode->getRepresentation() + " := " + postfixExpressionNode->getRepresentation() + " - " + temp2->name);
+		innerCode.addCodeForAssignment(temp2->getRepresentation(), "I1");
+		innerCode.addCodeForAssignment(postfixExpressionNode->getRepresentation(), postfixExpressionNode->getRepresentation(), "-", temp2->getRepresentation());
 
 		return temp1;
 	}
@@ -967,25 +980,26 @@ varNode *translator::translatePrimaryExpression(treeNode *primaryExpression)
 	else if (primaryExpression->firstChild()->name == "CONSTANT_INT")
 	{
 		varNode *temp = createTemp("int");
-		innerCode.addCode(temp->name + " := I" + primaryExpression->firstChild()->content);
+		innerCode.addCodeForAssignment(temp->getRepresentation(), "I" + primaryExpression->firstChild()->content);
 		return temp;
 	}
 	else if (primaryExpression->firstChild()->name == "CONSTANT_DOUBLE")
 	{
 		varNode *temp = createTemp("double");
-		innerCode.addCode(temp->name + " := F" + primaryExpression->firstChild()->content);
+		innerCode.addCodeForAssignment(temp->getRepresentation(), "F" + primaryExpression->firstChild()->content);
+
 		return temp;
 	}
 	else if (primaryExpression->firstChild()->name == "CONSTANT_CHAR")
 	{
 		varNode *temp = createTemp("char");
-		innerCode.addCode(temp->name + " := " + primaryExpression->firstChild()->content);
+		innerCode.addCodeForAssignment(temp->getRepresentation(), primaryExpression->firstChild()->content);
 		return temp;
 	}
 	else if (primaryExpression->firstChild()->name == "STRING_LITERAL")
 	{
-		varNode *temp = createTemp("string");
-		innerCode.addCode(temp->name + " := " + primaryExpression->firstChild()->content);
+		varNode *temp = createTemp("pointer_char");
+		innerCode.addCodeForAssignment(temp->getRepresentation(), primaryExpression->firstChild()->content);
 		return temp;
 	}
 	else if (primaryExpression->firstChild()->name == "(")
@@ -1019,7 +1033,7 @@ void translator::translateArgumentExpressionList(funcNode *func, treeNode *argum
     			printErrorMsg(argumentExpressionList->line, "Function argument passing error!");
     			exit(1);
             }
-            innerCode.addCode(innerCode.createCodeForArgument(assignmentExpressionNode));
+			innerCode.addCodeForArgument(assignmentExpressionNode->getRepresentation());
         }
 	}
 	// 参数可变
@@ -1043,7 +1057,7 @@ void translator::translateArgumentExpressionList(funcNode *func, treeNode *argum
     			printErrorMsg(argumentExpressionList->line, "Function argument passing error!");
     			exit(1);
             }
-            innerCode.addCode(innerCode.createCodeForArgument(assignmentExpressionNode));
+			innerCode.addCodeForArgument(assignmentExpressionNode->getRepresentation());
 		}
 	}
 }
@@ -1065,12 +1079,12 @@ void translator::translateSelectionStatement(treeNode *selectionStatement)
 		string label1 = createLabel();
 		string label2 = createLabel();
 
-		innerCode.addCode("IF " + expressionNode->boolString + " GOTO " + label1);
+		innerCode.addCodeForIf(expressionNode->boolString, label1);
+		innerCode.addCodeForGoto(label2);
 
-		innerCode.addCode("GOTO " + label2);
-		innerCode.addCode("LABEL " + label1 + " :");
+		innerCode.addCodeForLabel(label1);
 		translateStatement(selectionStatement->lastChild());
-		innerCode.addCode("LABEL " + label2 + " :");
+		innerCode.addCodeForLabel(label2);
 		blockStack.pop_back();
 	}
 	// selection_statement:	IF '(' expression ')' statement ELSE statement
@@ -1089,22 +1103,22 @@ void translator::translateSelectionStatement(treeNode *selectionStatement)
 		string label2 = createLabel();
 		string label3 = createLabel();
 
-		innerCode.addCode("IF " + expressionNode->boolString + " GOTO " + label1);
-		innerCode.addCode("GOTO " + label2);
+		innerCode.addCodeForIf(expressionNode->boolString, label1);
+		innerCode.addCodeForGoto(label2);
 
-		innerCode.addCode("LABEL " + label1 + " :");
+		innerCode.addCodeForLabel(label1);
 		translateStatement(selectionStatement->getChild(4));
 
-		innerCode.addCode("GOTO " + label3);
+		innerCode.addCodeForGoto(label3);
 		blockStack.pop_back();
 
 		Block *elseBlock = new Block();
 		blockStack.push_back(elseBlock);
 
-		innerCode.addCode("LABEL " + label2 + " :");
+		innerCode.addCodeForLabel(label2);
 		translateStatement(selectionStatement->lastChild());
 
-		innerCode.addCode("LABEL " + label3 + " :");
+		innerCode.addCodeForLabel(label3);
 
 		blockStack.pop_back();
 	}
@@ -1127,23 +1141,23 @@ void translator::translateIterationStatement(treeNode *iterationStatement)
 
 		newBlock->breakLabel = label3;
 
-		innerCode.addCode("LABEL " + label1 + " :");
+		innerCode.addCodeForLabel(label1);
 		varNode *expressionNode = translateExpression(iterationStatement->getChild(2));
 		if (expressionNode->type != "bool")
 		{
 			printErrorMsg(iterationStatement->line, "Only Boolean expressions are supported!");
 			exit(1);
 		}
-		innerCode.addCode("IF " + expressionNode->boolString + " GOTO " + label2);
-		innerCode.addCode("GOTO " + label3);
+		innerCode.addCodeForIf(expressionNode->boolString, label2);
+		innerCode.addCodeForGoto(label3);
 
-		innerCode.addCode("LABEL " + label2 + " :");
+		innerCode.addCodeForLabel(label2);
 		translateStatement(iterationStatement->lastChild());
-		innerCode.addCode("GOTO " + label1);
+		innerCode.addCodeForGoto(label1);
 
 		blockStack.pop_back();
 		delete newBlock;
-		innerCode.addCode("LABEL " + label3 + " :");
+		innerCode.addCodeForLabel(label3);
 	}
 	else if (iterationStatement->firstChild()->name == "DO")
 	{
@@ -1161,23 +1175,23 @@ void translator::translateIterationStatement(treeNode *iterationStatement)
 
 		newBlock->breakLabel = label3;
 
-		innerCode.addCode("LABEL " + label1 + " :");
+		innerCode.addCodeForLabel(label1);
 		varNode *expressionStatementNode = translateExpressionStatement(iterationStatement->getChild(3));
 		if (expressionStatementNode->type != "bool")
 		{
 			printErrorMsg(iterationStatement->line, "Only Boolean expressions are supported!");
 			exit(1);
 		}
-		innerCode.addCode("IF " + expressionStatementNode->boolString + " GOTO" + label2);
-		innerCode.addCode("GOTO " + label3);
+		innerCode.addCodeForIf(expressionStatementNode->boolString, label2);
+		innerCode.addCodeForGoto(label3);
 
-		innerCode.addCode("LABEL " + label2 + " :");
+		innerCode.addCodeForLabel(label2);
 		translateStatement(iterationStatement->lastChild());
-		innerCode.addCode("GOTO " + label1);
+		innerCode.addCodeForGoto(label1);
 
 		blockStack.pop_back();
 		delete newBlock;
-		innerCode.addCode("LABEL " + label3 + " :");
+		innerCode.addCodeForLabel(label3);
 	}
 	else if (iterationStatement->firstChild()->name == "FOR" && iterationStatement->childrenNum == 7 && iterationStatement->getChild(2)->name == "expression_statement")
 	{
@@ -1193,24 +1207,24 @@ void translator::translateIterationStatement(treeNode *iterationStatement)
 
 		newBlock->breakLabel = label3;
 
-		innerCode.addCode("LABEL " + label1 + " :");
+		innerCode.addCodeForLabel(label1);
 		varNode *expressionStatementNode = translateExpressionStatement(iterationStatement->getChild(3));
 		if (expressionStatementNode->type != "bool")
 		{
 			printErrorMsg(iterationStatement->line, "Only Boolean expressions are supported!");
 			exit(1);
 		}
-		innerCode.addCode("IF " + expressionStatementNode->boolString + " GOTO " + label2);
-		innerCode.addCode("GOTO " + label3);
+		innerCode.addCodeForIf(expressionStatementNode->boolString, label2);
+		innerCode.addCodeForGoto(label3);
 
-		innerCode.addCode("LABEL " + label2 + " :");
+		innerCode.addCodeForLabel(label2);
 		translateStatement(iterationStatement->lastChild());
 		translateExpression(iterationStatement->getChild(4));
-		innerCode.addCode("GOTO " + label1);
+		innerCode.addCodeForGoto(label1);
 
 		blockStack.pop_back();
 		delete newBlock;
-		innerCode.addCode("LABEL " + label3 + " :");
+		innerCode.addCodeForLabel(label3);
 	}
 	else if (iterationStatement->firstChild()->name == "FOR" && iterationStatement->childrenNum == 6 && iterationStatement->getChild(2)->name == "declaration")
 	{
@@ -1225,23 +1239,23 @@ void translator::translateIterationStatement(treeNode *iterationStatement)
 
 		newBlock->breakLabel = label3;
 
-		innerCode.addCode("LABEL " + label1 + " :");
+		innerCode.addCodeForLabel(label1);
 		varNode *expressionStatementNode = translateExpressionStatement(iterationStatement->getChild(3));
 		if (expressionStatementNode->type != "bool")
 		{
 			printErrorMsg(iterationStatement->line, "Only Boolean expressions are supported!");
 			exit(1);
 		}
-		innerCode.addCode("IF " + expressionStatementNode->boolString + " GOTO" + label2);
-		innerCode.addCode("GOTO " + label3);
+		innerCode.addCodeForIf(expressionStatementNode->boolString, label2);
+		innerCode.addCodeForGoto(label3);
 
-		innerCode.addCode("LABEL " + label2 + " :");
+		innerCode.addCodeForLabel(label2);
 		translateStatement(iterationStatement->lastChild());
-		innerCode.addCode("GOTO " + label1);
+		innerCode.addCodeForGoto(label1);
 
 		blockStack.pop_back();
 		delete newBlock;
-		innerCode.addCode("LABEL " + label3 + " :");
+		innerCode.addCodeForLabel(label3);
 	}
 	else if (iterationStatement->firstChild()->name == "FOR" && iterationStatement->childrenNum == 7 && iterationStatement->getChild(2)->name == "declaration")
 	{
@@ -1257,24 +1271,24 @@ void translator::translateIterationStatement(treeNode *iterationStatement)
 
 		newBlock->breakLabel = label3;
 
-		innerCode.addCode("LABEL " + label1 + " :");
+		innerCode.addCodeForLabel(label1);
 		varNode *expressionStatementNode = translateExpressionStatement(iterationStatement->getChild(3));
 		if (expressionStatementNode->type != "bool")
 		{
 			printErrorMsg(iterationStatement->line, "Only Boolean expressions are supported!");
 			exit(1);
 		}
-		innerCode.addCode("IF " + expressionStatementNode->boolString + " GOTO " + label2);
-		innerCode.addCode("GOTO " + label3);
+		innerCode.addCodeForIf(expressionStatementNode->boolString, label2);
+		innerCode.addCodeForGoto(label3);
 
-		innerCode.addCode("LABEL " + label2 + " :");
+		innerCode.addCodeForLabel(label2);
 		translateStatement(iterationStatement->lastChild());
 		translateExpression(iterationStatement->getChild(4));
-		innerCode.addCode("GOTO " + label1);
+		innerCode.addCodeForGoto(label1);
 
 		blockStack.pop_back();
 		delete newBlock;
-		innerCode.addCode("LABEL " + label3 + " :");
+		innerCode.addCodeForLabel(label3);
 	}
 }
 void translator::translateJumpStatement(treeNode *jumpStatement)
@@ -1292,7 +1306,7 @@ void translator::translateJumpStatement(treeNode *jumpStatement)
 			printErrorMsg(jumpStatement->line, "Can not break!");
 			exit(1);
 		}
-		innerCode.addCode("GOTO " + blockStack.back()->breakLabel);
+		innerCode.addCodeForGoto(blockStack.back()->breakLabel);
 	}
 	else if (jumpStatement->firstChild()->name == "RETURN" && jumpStatement->childrenNum == 2)
 	{
@@ -1301,7 +1315,7 @@ void translator::translateJumpStatement(treeNode *jumpStatement)
 			printErrorMsg(jumpStatement->line, "Return data type error!");
 			exit(1);
 		}
-		innerCode.addCode("RETURN");
+		innerCode.addCodeForReturn();
 	}
 	else if (jumpStatement->firstChild()->name == "RETURN" && jumpStatement->childrenNum == 3)
 	{
@@ -1311,6 +1325,6 @@ void translator::translateJumpStatement(treeNode *jumpStatement)
 			printErrorMsg(jumpStatement->line, "Return data type error!");
 			exit(1);
 		}
-		innerCode.addCode(innerCode.createCodeForReturn(expression));
+		innerCode.addCodeForReturn(expression->getRepresentation());
 	}
 }

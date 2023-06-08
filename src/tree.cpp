@@ -4,6 +4,17 @@
 #include <string.h>
 #include "tree.hpp"
 using namespace std;
+
+varNode::varNode(string name, string type): name(name), type(type)
+{
+	representation = to_string(getSize(type)) + name;
+}
+
+varNode::varNode(string name, string type, int varNum): name(name), type(type)
+{
+	representation = to_string(getSize(type)) + "var" + to_string(varNum);
+}
+
 treeNode::treeNode(string name, int childrenNum, ...) : name(name), childrenNum(childrenNum)
 {
 	va_list valist;
@@ -92,19 +103,7 @@ treeNode *treeNode::getChild(int index)
 
 string varNode::getRepresentation()
 {
-	// temp
-	if (num < 0)
-	{
-		return prefix + name;
-	}
-	else
-	{
-		if (type.find("array") != string::npos)
-        {
-            return prefix + "array" + to_string(num);
-        }
-        return prefix + "var" + to_string(num);
-	}
+	return representation;
 }
 
 void treeNode::printTree(int degree, ofstream &os)

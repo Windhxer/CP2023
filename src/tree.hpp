@@ -14,18 +14,51 @@ using namespace std;
 class varNode
 {
 public:
+	// static map<string, int> typeSizeMap;
+	// static void initialMap()
+	// {
+	// 	typeSizeMap.insert({"int", 4});
+	// 	typeSizeMap.insert({"double", 8});
+	// 	typeSizeMap.insert({"char", 1});
+	// }
+	static int getSize(string type)
+	{
+		if (type.find("pointer") != string::npos)
+		{
+			return 8;
+		}
+		else if (type == "int")
+		{
+			return 4;
+		}
+		else if (type == "char")
+		{
+			return 1;
+		}
+		else if (type == "double")
+		{
+			return 8;
+		}
+		else if (type == "bool")
+		{
+			return 1;
+		}
+	}
 	varNode(string type) : type(type) {}
-	varNode(string name, string type) : name(name), type(type) {}
-	varNode(string name, string type, int num) : name(name), type(type), num(num) {}
+	varNode(string name, string type); // temp
+	varNode(string name, string type, int varNum); // var
 
 	string getRepresentation();
 
+	static string getPointedDataType(string pointerType)
+	{
+		return pointerType.substr(8);
+	}
+
 	string name;
 	string type;
-	int num = -1;
-	bool isAddress = false; // 判断指针类型，使其可以判断无struct等语法情况下的指针
+	string representation;
 	string boolString;		 // 将bool变量囊括进普通变量中
-	string prefix = "";
 };
 
 // 函数节点

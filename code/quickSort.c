@@ -34,18 +34,18 @@ void quickSort(int arr[], int low, int high) {
 
 int main() {
     int N;
-    scanf("%ld", &N);
+    scanf("%d", &N);
 
     int arr[10000];
     for (int i = 0; i < N; i = i + 1) {
-        scanf("%ld", &arr[i]);
+        scanf("%d", &arr[i]);
     }
 
     // 对整数数组进行快速排序
     quickSort(arr, 0, N - 1);
 
     for (int i = 0; i < N; i = i + 1) {
-        printf("%ld\n", arr[i]);
+        printf("%d\n", arr[i]);
     }
 
     return 0;

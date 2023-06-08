@@ -25,7 +25,7 @@ def init():
     for line in open(innerCodePath, "r", encoding="utf-8"):
         line = line.replace("\r", "").replace("\n", "")
         strings += [string.replace('"', "") for string in re.findall("(\".*\")", line)]
-        temps += re.findall("(temp\d+)", line)
+        temps += re.findall("(\d+temp\d+)", line)
         if line != "":
             tokenList = re.split(r'\s(?=(?:[^"]*"[^"]*")*[^"]*$)', line)
             lines.append(tokenList)
@@ -70,6 +70,28 @@ def addImmInst(inst, rd, rs, imm):
     else:
         result.append("\t%s %s, %s, %d"%(inst, rd, rs, imm))
 
+def getLoadOrStoreScope(var):
+    size = int(re.search("(\d+).*", var).group(1))
+    if size == 1:
+        return "b"
+    elif size == 2:
+        return "h"
+    elif size == 4:
+        return "w"
+    elif size == 8:
+        return "d"
+
+def getArithmeticScope(var):
+    size = int(re.search("(\d+).*", var).group(1))
+    if size == 1:
+        return "b"
+    elif size == 2:
+        return "h"
+    elif size == 4:
+        return "w"
+    elif size == 8:
+        return ""
+
 
 # name = temp%d or var%d
 def getReg(name):
@@ -105,34 +127,30 @@ def deleteReg(name):
 def loadValueInReg(name, varMap):
     global result
     global regNeedToBeDeleted
-    if name[0] == "&":
-        if name[1] == "*":
-            return getReg(name.replace("&", "").replace("*", ""))
-        else:
-            rs = getReg("")
-            addImmInst("addi", rs, "s0", varMap[name.replace("&", "")])
-            regNeedToBeDeleted.append(rs)
-            return rs
-    elif name[0] == "*":
+    match1 = re.search("(\d+)\*(.*\d+)", name)
+    match2 = re.search("(\d+)&(.*\d+)", name)
+    # 从一个temp上取指针得来的，加载temp所在的寄存器所对应的地址的内容
+    if match1:
         rs = getReg("")
-        result.append("\tld %s, 0(%s)"%(rs, getReg(name.replace("*", ""))))
+        result.append("l%s %s, 0(%s)"%(getLoadOrStoreScope(name), rs, getReg(match1.group(2))))
+        regNeedToBeDeleted.append(rs)
+        return rs
+    elif match2:
+        rs = getReg("")
+        var = match2.group(2)
+        addImmInst("addi", rs, "s0", varMap[var])
         regNeedToBeDeleted.append(rs)
         return rs
     elif "var" in name:
         rs = getReg("")
-        addLoadOrStoreInst("ld", rs, varMap[name], "s0")
-        regNeedToBeDeleted.append(rs)
-        return rs
-    elif "array" in name:
-        rs = getReg("")
-        addLoadOrStoreInst("ld", rs, varMap[name], "s0")
+        addLoadOrStoreInst("l%s"%getLoadOrStoreScope(name), rs, varMap[name], "s0")
         regNeedToBeDeleted.append(rs)
         return rs
     elif "temp" in name:
         return getReg(name)
 
 # arrayMap对应的是数组的起始地址的相对值（相对s0），varMap对应变量的相对地址（相对s0）
-def generateFunctionNode(start, end, varMap, arrayMap, funcName):
+def generateFunctionNode(start, end, varMap, funcName):
     global result
     global regNeedToBeDeleted
     argNum = 0
@@ -145,10 +163,17 @@ def generateFunctionNode(start, end, varMap, arrayMap, funcName):
         # RETURN
         elif line[0] == "RETURN":
             if len(line) == 2:
-                if line[-1][0] == "*":
-                    result.append("\tld a0, 0(%s)"%(getReg(line[-1].replace("*", ""))))
+                match = re.search("(\d+)\*(.*)", line[-1])
+                match2 = re.search("(\d+)&(.*)", line[-1])
+                # 一定是 *temp
+                if match:
+                    result.append("\tl%s a0, 0(%s)"%(getLoadOrStoreScope(line[-1]), getReg(match.group(2))))
+                # 一定是 &var
+                elif match2:
+                    addr = match2.group(2)
+                    addImmInst("addi", "a0", "s0", varMap[addr])
                 elif "var" in line[-1]:
-                    addLoadOrStoreInst("ld", "a0", varMap[line[-1]], "s0")
+                    addLoadOrStoreInst("l%s"%getLoadOrStoreScope(line[-1]), "a0", varMap[line[-1]], "s0")
                 elif "temp" in line[-1]:
                     result.append("\tmv a0, %s"%(getReg(line[-1])))
             result.append("\tj .%sReturn"%(funcName))
@@ -156,20 +181,26 @@ def generateFunctionNode(start, end, varMap, arrayMap, funcName):
         elif line[1] == ":=":
             # var/temp := var/temp/I
             if len(line) == 3:
+				# temp := "str"
                 if line[-1][0] == '"':
                     rd = getReg(line[0])
                     result.append("\tlui %s, %%hi(%s)"%(rd, stringMap[line[-1].replace('"', "")]))
                     result.append("\taddi %s, %s, %%lo(%s)"%(rd, rd, stringMap[line[-1].replace('"', "")]))
-                # temp := I
+                # temp := 'c'
+                elif line[-1][0] == "'":
+                    ascii = ord(line[-1][1])
+                    result.append("\tli %s, %d"%(getReg(line[0]), ascii))
+				# temp := I
                 elif line[-1][0] == "I":
                     result.append("\tli %s, %s"%(getReg(line[0]), line[-1].replace("I", "")))
                 else:
                     rs = loadValueInReg(line[-1], varMap)
-
-                    if line[0][0] == "*":
-                        result.append("\tsd %s, 0(%s)"%(rs, getReg(line[0].replace("*", ""))))
+					# &仅存在与 temp := &var, 赋值左侧没有&
+                    match = re.search("(\d+)\*(.*)", line[0])
+                    if match:
+                        result.append("\ts%s %s, 0(%s)"%(getLoadOrStoreScope(line[0]), rs, getReg(match.group(2))))
                     elif "var" in line[0]:
-                        addLoadOrStoreInst("sd", rs, varMap[line[0]], "s0")
+                        addLoadOrStoreInst("s%s"%getLoadOrStoreScope(line[0]), rs, varMap[line[0]], "s0")
                     elif "temp" in line[0]:
                         result.append("\tmv %s, %s"%(getReg(line[0]), rs))
                     for reg in regNeedToBeDeleted:
@@ -177,147 +208,46 @@ def generateFunctionNode(start, end, varMap, arrayMap, funcName):
                     regNeedToBeDeleted.clear()
             # var/temp/*temp := var/temp/*temp +/-/*/<</>>// var/temp/*temp
             elif len(line) == 5:
-                rs1 = loadValueInReg(line[2], varMap)
-                rs2 = loadValueInReg(line[-1], varMap)
-                isDouble = False
-                if "array" in line[2] or "array" in line[-1]:
-                    isDouble = True
+                inst = ""
                 if line[3] == "+":
-                    if line[0][0] == "*":
-                        rd = getReg("")
-                        if isDouble:
-                            result.append("\tadd %s, %s, %s"%(rd, rs1, rs2))
-                        else:
-                            result.append("\tadd %s, %s, %s"%(rd, rs1, rs2))
-                        result.append("\tsd %s, 0(%s)"%(rd, getReg(line[0].replace("*", ""))))
-                        deleteReg(rd)
+                    inst = "add"
+                elif line[3] == "-":
+                    inst = "sub"
+                elif line[3] == "*":
+                    inst = "mul"
+                elif line[3] == "/":
+                    inst = "div"
+                elif line[3] == "RIGHT_OP":
+                    inst = "sra"
+                elif line[3] == "LEFT_OP":
+                    inst = "sll"
+                if inst != "":
+                    rs1 = loadValueInReg(line[2], varMap)
+                    rs2 = loadValueInReg(line[-1], varMap)
+                    match = re.search("(\d+)\*(.*)", line[0])
+                    if match:
+                        temp = getReg("")
+                        result.append("\t%s %s, %s, %s"%(inst, temp, rs1, rs2))
+                        result.append("\ts%s %s, 0(%s)"%(getLoadOrStoreScope(line[0]), temp, getReg(match.group(2))))
+                        deleteReg(temp)
                     elif "var" in line[0]:
-                        rd = getReg("")
-                        if isDouble:
-                            result.append("\tadd %s, %s, %s"%(rd, rs1, rs2))
-                        else:
-                            result.append("\tadd %s, %s, %s"%(rd, rs1, rs2))
-                        addLoadOrStoreInst("sd", rd, varMap[line[0]], "s0")
-                        deleteReg(rd)
+                        temp = getReg("")
+                        result.append("\t%s %s, %s, %s"%(inst, temp, rs1, rs2))
+                        addLoadOrStoreInst("s%s"%getLoadOrStoreScope(line[0]), temp, varMap[line[0]], "s0")
+                        deleteReg(temp)
                     elif "temp" in line[0]:
-                        if isDouble:
-                            result.append("\tadd %s, %s, %s"%(getReg(line[0]), rs1, rs2))
-                        else:
-                            result.append("\tadd %s, %s, %s"%(getReg(line[0]), rs1, rs2))
-                if line[3] == "-":
-                    if line[0][0] == "*":
-                        rd = getReg("")
-                        if isDouble:
-                            result.append("\tsub %s, %s, %s"%(rd, rs1, rs2))
-                        else:
-                            result.append("\tsub %s, %s, %s"%(rd, rs1, rs2))
-                        result.append("\tsd %s, 0(%s)"%(rd, getReg(line[0].replace("*", ""))))
-                        deleteReg(rd)
-                    elif "var" in line[0]:
-                        rd = getReg("")
-                        if isDouble:
-                            result.append("\tsub %s, %s, %s"%(rd, rs1, rs2))
-                        else:
-                            result.append("\tsub %s, %s, %s"%(rd, rs1, rs2))
-                        addLoadOrStoreInst("sd", rd, varMap[line[0]], "s0")
-                        deleteReg(rd)
-                    elif "temp" in line[0]:
-                        if isDouble:
-                            result.append("\tsub %s, %s, %s"%(getReg(line[0]), rs1, rs2))
-                        else:
-                            result.append("\tsub %s, %s, %s"%(getReg(line[0]), rs1, rs2))
-                if line[3] == "*":
-                    if line[0][0] == "*":
-                        rd = getReg("")
-                        if isDouble:
-                            result.append("\tmul %s, %s, %s"%(rd, rs1, rs2))
-                        else:
-                            result.append("\tmul %s, %s, %s"%(rd, rs1, rs2))
-                        result.append("\tsd %s, 0(%s)"%(rd, getReg(line[0].replace("*", ""))))
-                        deleteReg(rd)
-                    elif "var" in line[0]:
-                        rd = getReg("")
-                        if isDouble:
-                            result.append("\tmul %s, %s, %s"%(rd, rs1, rs2))
-                        else:
-                            result.append("\tmul %s, %s, %s"%(rd, rs1, rs2))
-                        addLoadOrStoreInst("sd", rd, varMap[line[0]], "s0")
-                        deleteReg(rd)
-                    elif "temp" in line[0]:
-                        result.append("\tmul %s, %s, %s"%(getReg(line[0]), rs1, rs2))
-                if line[3] == "/":
-                    if line[0][0] == "*":
-                        rd = getReg("")
-                        if isDouble:
-                            result.append("\tdiv %s, %s, %s"%(rd, rs1, rs2))
-                        else:
-                            result.append("\tdiv %s, %s, %s"%(rd, rs1, rs2))
-                        result.append("\tsd %s, 0(%s)"%(rd, getReg(line[0].replace("*", ""))))
-                        deleteReg(rd)
-                    elif "var" in line[0]:
-                        rd = getReg("")
-                        if isDouble:
-                            result.append("\tdiv %s, %s, %s"%(rd, rs1, rs2))
-                        else:
-                            result.append("\tdiv %s, %s, %s"%(rd, rs1, rs2))
-                        addLoadOrStoreInst("sd", rd, varMap[line[0]], "s0")
-                        deleteReg(rd)
-                    elif "temp" in line[0]:
-                        if isDouble:
-                            result.append("\tdiv %s, %s, %s"%(getReg(line[0]), rs1, rs2))
-                        else:
-                            result.append("\tdiv %s, %s, %s"%(getReg(line[0]), rs1, rs2))
-                if line[3] == "RIGHT_OP":
-                    if line[0][0] == "*":
-                        rd = getReg("")
-                        if isDouble:
-                            result.append("\tsra %s, %s, %s"%(rd, rs1, rs2))
-                        else:
-                            result.append("\tsra %s, %s, %s"%(rd, rs1, rs2))
-                        result.append("\tsd %s, 0(%s)"%(rd, getReg(line[0].replace("*", ""))))
-                        deleteReg(rd)
-                    elif "var" in line[0]:
-                        rd = getReg("")
-                        if isDouble:
-                            result.append("\tsra %s, %s, %s"%(rd, rs1, rs2))
-                        else:
-                            result.append("\tsra %s, %s, %s"%(rd, rs1, rs2))
-                        addLoadOrStoreInst("sd", rd, varMap[line[0]], "s0")
-                        deleteReg(rd)
-                    elif "temp" in line[0]:
-                        result.append("\tsra %s, %s, %s"%(getReg(line[0]), rs1, rs2))
-                if line[3] == "LEFT_OP":
-                    if line[0][0] == "*":
-                        rd = getReg("")
-                        if isDouble:
-                            result.append("\tsll %s, %s, %s"%(rd, rs1, rs2))
-                        else:
-                            result.append("\tsll %s, %s, %s"%(rd, rs1, rs2))
-                        result.append("\tsd %s, 0(%s)"%(rd, getReg(line[0].replace("*", ""))))
-                        deleteReg(rd)
-                    elif "var" in line[0]:
-                        rd = getReg("")
-                        if isDouble:
-                            result.append("\tsll %s, %s, %s"%(rd, rs1, rs2))
-                        else:
-                            result.append("\tsll %s, %s, %s"%(rd, rs1, rs2))
-                        addLoadOrStoreInst("sd", rd, varMap[line[0]], "s0")
-                        deleteReg(rd)
-                    elif "temp" in line[0]:
-                        if isDouble:
-                            result.append("\tsll %s, %s, %s"%(getReg(line[0]), rs1, rs2))
-                        else:
-                            result.append("\tsll %s, %s, %s"%(getReg(line[0]), rs1, rs2))
-                for reg in regNeedToBeDeleted:
-                    deleteReg(reg)
-                regNeedToBeDeleted.clear()
+                        result.append("\t%s %s, %s, %s"%(inst, getReg(line[0]), rs1, rs2))
+                    for reg in regNeedToBeDeleted:
+                        deleteReg(reg)
+                    regNeedToBeDeleted.clear()
             # temp := CALL FUN
             elif line[2] == "CALL":
                 result.append("\tcall %s"%(line[-1]))
-                if line[0][0] == "*":
-                    result.append("\tsd a0, 0(%s)"%(getReg(line[0].replace("*", ""))))
+                match = re.search("(\d+)\*(.*)", line[0])
+                if match:
+                    result.append("\ts%s a0, 0(%s)"%(getLoadOrStoreScope(line[0]), match.group(2)))
                 elif "var" in line[0]:
-                    addLoadOrStoreInst("sd", "a0", varMap[line[0]], "s0")
+                    addLoadOrStoreInst("s%s"%getLoadOrStoreScope(line[0]), "a0", varMap[line[0]], "s0")
                 elif "temp" in line[0]:
                     result.append("\tmv %s, a0"%(getReg(line[0])))
                 argNum = 0
@@ -341,23 +271,18 @@ def generateFunctionNode(start, end, varMap, arrayMap, funcName):
             elif line[2] == "<=":
                 result.append("\tble %s, %s, .%s"%(reg1, reg2, line[-1]))
         elif line[0] == "ARG":
-            if line[1][0] == "*":
-                result.append("\tld a%d, 0(%s)"%(argNum, getReg(line[1].replace("*", ""))))
+            match = re.search("(\d+)\*(.*)", line[1])
+            if match:
+                result.append("\tl%s a%d, 0(%s)"%(getLoadOrStoreScope(line[1]), argNum, getReg(match.group(2))))
                 argNum += 1
             elif "var" in line[1]:
-                addLoadOrStoreInst("ld", "a%d"%argNum, varMap[line[1]], "s0")
-                argNum += 1
-            elif "array" in line[1]:
-                addLoadOrStoreInst("ld", "a%d"%argNum, varMap[line[1]], "s0")
+                addLoadOrStoreInst("l%s"%getLoadOrStoreScope(line[1]), "a%d"%argNum, varMap[line[1]], "s0")
                 argNum += 1
             elif "temp" in line[1]:
                 result.append("\tmv a%d, %s"%(argNum, getReg(line[1])))
                 argNum += 1
         elif line[0] == "PARAM":
-            if "array" in line[1]:
-                addLoadOrStoreInst("sd", "a%d"%paraNum, varMap[line[1]], "s0")
-            elif "var" in line[1]:
-                addLoadOrStoreInst("sd", "a%d"%paraNum, varMap[line[1]], "s0")
+            addLoadOrStoreInst("s%s"%getLoadOrStoreScope(line[1]), "a%d"%paraNum, varMap[line[1]], "s0")
             paraNum += 1
         elif line[0] == "CALL":
             result.append("\tcall %s"%(line[1]))
@@ -396,22 +321,22 @@ def generateCode():
         frameSize = 0
         funcName = lines[start][1]
         location = 0
-        for j in range(start, end):
-            for var in re.findall("(var\d+)", " ".join(lines[j])):
-                if var not in varMap:
-                    varMap[var] = location
-                    location += 8
-            for array in re.findall("(array\d+)", " ".join(lines[j])):
-                if array not in varMap:
-                    varMap[array] = location
-                    location += 8
 
         for j in range(start, end):
+            # ARRAY 8var0 4temp0 * 4temp1
             if lines[j][0] == "ARRAY":
                 arrayMap[lines[j][1]] = location
-                size = eval(findArraySize(j, lines[j][-1]))
-                location += size
-
+                step = findArraySize(j, lines[j][2])
+                size = findArraySize(j, lines[j][-1])
+                totalSize = eval("%s * %s"%(step, size))
+                location += totalSize
+                
+                
+        for j in range(start, end):
+            for var in re.findall("(\d+)(var\d+)", " ".join(lines[j])):
+                if var[0] + var[1] not in varMap:
+                    varMap[var[0] + var[1]] = location
+                    location += int(var[0])
         frameSize = location + 24
         while frameSize % 16 != 0:
             frameSize += 1
@@ -437,8 +362,8 @@ def generateCode():
             addImmInst("addi", reg, "s0", value)
             addLoadOrStoreInst("sd", reg, varMap[key], "s0")
             deleteReg(reg)
-
-        generateFunctionNode(start, end, varMap, arrayMap, funcName)
+        print(varMap)
+        generateFunctionNode(start, end, varMap, funcName)
 
         result.append(".%sReturn:"%(funcName))
         addLoadOrStoreInst("ld", "ra", frameSize - 8, "sp")
@@ -458,3 +383,28 @@ arg2 = sys.argv[2]
 innerCodePath = arg1
 asmPath = arg2
 generateCode()
+
+'''
+char a = '1';
+char *b = &a;
+*b = '3'
+
+
+1temp0 := '1'
+1var0 := 1temp0
+8temp1 := 8&1var0
+8var1 := 8temp1
+8temp2 := 8var1
+
+import re
+def remove_number_parentheses(text):
+    pattern = '\((\d+)\)'  # 匹配包裹纯数字的括号，其中\d+表示匹配一个或多个数字
+    result = re.sub(pattern, '\\1', text)  # 将匹配到的内容替换为括号内的数字
+    return result
+
+re.sub("\d")
+
+text = '这是一个示例(123)文本，(456)包裹着纯数字的括号将被去掉。'
+result = remove_number_parentheses(text)
+print(result)
+'''

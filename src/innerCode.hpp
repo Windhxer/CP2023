@@ -22,6 +22,21 @@ public:
 	innerCode();
 	void addCode(string code);
 	void printCode(ofstream &os);
+	void addCodeForAssignment(string destination, string source);
+	void addCodeForAssignment(string destination, string source1, string op, string source2);
+	void addCodeForParameter(string parameter);
+	void addCodeForArgument(string argument);
+	void addCodeForArray(string arrayName, string step, string size);
+	void addCodeForFunction(string funcName);
+	void addCodeForEnd();
+	void addCodeForCall(string funcName);
+	void addCodeForCallAssignment(string destination, string funcName);
+	void addCodeForIf(string condition, string label);
+	void addCodeForGoto(string label);
+	void addCodeForLabel(string label);
+	void addCodeForReturn();
+	void addCodeForReturn(string data);
+
 	string createCodeForVar(string name, string op, varNode* node1, varNode* node2);
 	string createCodeForAssign(varNode* node1, varNode* node2);
 	string createCodeForParameter(varNode* node); // 描述函数参数（形参）

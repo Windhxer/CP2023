@@ -1,0 +1,1 @@
+qemu-riscv64 ./advisor-linux-riscv64 ./advisor

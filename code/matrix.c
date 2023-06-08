@@ -19,7 +19,7 @@ void matrix_multiplication(int A[], int B[], int rows_A, int cols_A, int rows_B,
     // 输出乘积结果
     for (int i = 0; i < row; i = i + 1) {
         for (int j = 0; j < column; j = j + 1) {
-            printf("%10ld", result[i * column + j]);
+            printf("%10d", result[i * column + j]);
         }
         printf("\n");
     }
@@ -33,21 +33,21 @@ int main() {
     int B[10000];
 
     // 读取矩阵 A 的维度
-    scanf("%ld %ld", &rows_A, &cols_A);
+    scanf("%d %d", &rows_A, &cols_A);
 
     // 读取矩阵 A 的元素
     for (int i = 0; i < rows_A; i = i + 1) {
         for (int j = 0; j < cols_A; j = j + 1) {
-            scanf("%ld", &A[i * cols_A + j]);
+            scanf("%d", &A[i * cols_A + j]);
         }
     }
     // 读取矩阵 B 的维度
-    scanf("%ld %ld", &rows_B, &cols_B);
+    scanf("%d %d", &rows_B, &cols_B);
 
     // 读取矩阵 B 的元素
     for (int i = 0; i < rows_B; i = i + 1) {
         for (int j = 0; j < cols_B; j = j + 1) {
-            scanf("%ld", &B[i * cols_B + j]);
+            scanf("%d", &B[i * cols_B + j]);
         }
     }
 
