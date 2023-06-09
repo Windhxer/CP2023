@@ -1,9 +1,11 @@
 import re
 import sys
-regs = ["t0", "t1", "t2", "t3", "t4", "t5", "t6", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10", "s11"]
+# regs = ["t0", "t1", "t2", "t3", "t4", "t5", "t6", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10", "s11"]
+regs = ["s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10", "s11"]
 regsAllocation = {} # {temp, ref} 查看temp分配了哪个寄存器
 regsAvailable = {} # {reg, bool}查看寄存器是否被分配
 temps = [] # 所有会出现的temp
+tempNeedToBeDeleted = []
 lines = []
 result = []
 funcStarts = []
@@ -50,6 +52,7 @@ def init():
             result.append("%s:"%value)
             result.append('\t.string "%s"'%key)
     result.append("\t.text")
+    # print(temps)
 
 def addLoadOrStoreInst(inst, reg1, offset, reg2):
     if offset < -2048 or offset > 2047:
@@ -57,6 +60,7 @@ def addLoadOrStoreInst(inst, reg1, offset, reg2):
         result.append("\tli %s, %d"%(reg, offset))
         result.append("\tadd %s, %s, %s"%(reg, reg, reg2))
         result.append("\t%s %s, 0(%s)"%(inst, reg1, reg))
+        
         deleteReg(reg)
     else:
         result.append("\t%s %s, %d(%s)"%(inst, reg1, offset, reg2))
@@ -83,18 +87,21 @@ def getLoadOrStoreScope(var):
 
 def getArithmeticScope(var):
     size = int(re.search("(\d+).*", var).group(1))
-    if size == 1:
-        return "b"
-    elif size == 2:
-        return "h"
-    elif size == 4:
+    if size == 4:
         return "w"
-    elif size == 8:
+    else:
         return ""
-
 
 # name = temp%d or var%d
 def getReg(name):
+    a = 0
+    for key, value in regsAvailable.items():
+        if value == True:
+            a += 1
+    # print(a)
+    # if a <= 10:
+    #     print("name: %s"%name)
+    # print("a: %d, name: %s"%(a, name))
     if name == "":
         for key, value in regsAvailable.items():
             if value == True:
@@ -105,24 +112,28 @@ def getReg(name):
             temps.remove(name)
         except:
             pass
+        if name not in temps:
+            tempNeedToBeDeleted.append(name)
         if name in regsAllocation:
             return regsAllocation[name]
         else:
-            keys = []
-            for key in regsAllocation:
-                keys.append(key)
-            for key in keys:
-                if key not in temps:
-                    regsAvailable[regsAllocation[key]] = True
-                    del regsAllocation[key]
             for reg in regs:
                 if regsAvailable[reg] == True:
                     regsAllocation[name] = reg
                     regsAvailable[reg] = False
                     return reg
 
-def deleteReg(name):
-    regsAvailable[name] = True
+def deleteTemp(tempName):
+    regsAvailable[regsAllocation[tempName]] = True
+    del regsAllocation[tempName]
+
+def deleteTemps():
+    for temp in tempNeedToBeDeleted:
+        deleteTemp(temp)
+    tempNeedToBeDeleted.clear()
+
+def deleteReg(regName):
+    regsAvailable[regName] = True
 
 def loadValueInReg(name, varMap):
     global result
@@ -147,7 +158,8 @@ def loadValueInReg(name, varMap):
         regNeedToBeDeleted.append(rs)
         return rs
     elif "temp" in name:
-        return getReg(name)
+        rs = getReg(name)
+        return rs
 
 # arrayMap对应的是数组的起始地址的相对值（相对s0），varMap对应变量的相对地址（相对s0）
 def generateFunctionNode(start, end, varMap, funcName):
@@ -188,7 +200,7 @@ def generateFunctionNode(start, end, varMap, funcName):
                     result.append("\taddi %s, %s, %%lo(%s)"%(rd, rd, stringMap[line[-1].replace('"', "")]))
                 # temp := 'c'
                 elif line[-1][0] == "'":
-                    ascii = ord(line[-1][1])
+                    ascii = ord(eval(line[-1]))
                     result.append("\tli %s, %d"%(getReg(line[0]), ascii))
 				# temp := I
                 elif line[-1][0] == "I":
@@ -208,7 +220,7 @@ def generateFunctionNode(start, end, varMap, funcName):
                     regNeedToBeDeleted.clear()
             # var/temp/*temp := var/temp/*temp +/-/*/<</>>// var/temp/*temp
             elif len(line) == 5:
-                inst = ""
+                inst = "add"
                 if line[3] == "+":
                     inst = "add"
                 elif line[3] == "-":
@@ -217,35 +229,37 @@ def generateFunctionNode(start, end, varMap, funcName):
                     inst = "mul"
                 elif line[3] == "/":
                     inst = "div"
+                elif line[3] == "%":
+                    inst = "rem"
                 elif line[3] == "RIGHT_OP":
                     inst = "sra"
                 elif line[3] == "LEFT_OP":
                     inst = "sll"
-                if inst != "":
-                    rs1 = loadValueInReg(line[2], varMap)
-                    rs2 = loadValueInReg(line[-1], varMap)
-                    match = re.search("(\d+)\*(.*)", line[0])
-                    if match:
-                        temp = getReg("")
-                        result.append("\t%s %s, %s, %s"%(inst, temp, rs1, rs2))
-                        result.append("\ts%s %s, 0(%s)"%(getLoadOrStoreScope(line[0]), temp, getReg(match.group(2))))
-                        deleteReg(temp)
-                    elif "var" in line[0]:
-                        temp = getReg("")
-                        result.append("\t%s %s, %s, %s"%(inst, temp, rs1, rs2))
-                        addLoadOrStoreInst("s%s"%getLoadOrStoreScope(line[0]), temp, varMap[line[0]], "s0")
-                        deleteReg(temp)
-                    elif "temp" in line[0]:
-                        result.append("\t%s %s, %s, %s"%(inst, getReg(line[0]), rs1, rs2))
-                    for reg in regNeedToBeDeleted:
-                        deleteReg(reg)
-                    regNeedToBeDeleted.clear()
+                rs1 = loadValueInReg(line[2], varMap)
+                rs2 = loadValueInReg(line[-1], varMap)
+                match = re.search("(\d+)\*(.*)", line[0])
+                if match:
+                    temp = getReg("")
+                    result.append("\t%s%s %s, %s, %s"%(inst, getArithmeticScope(line[0]) , temp, rs1, rs2))
+                    result.append("\ts%s %s, 0(%s)"%(getLoadOrStoreScope(line[0]), temp, getReg(match.group(2))))
+                    deleteReg(temp)
+                elif "var" in line[0]:
+                    temp = getReg("")
+                    result.append("\t%s%s %s, %s, %s"%(inst, getArithmeticScope(line[0]) , temp, rs1, rs2))
+                    addLoadOrStoreInst("s%s"%getLoadOrStoreScope(line[0]), temp, varMap[line[0]], "s0")
+                    deleteReg(temp)
+                elif "temp" in line[0]:
+                    result.append("\t%s%s %s, %s, %s"%(inst, getArithmeticScope(line[0]), getReg(line[0]), rs1, rs2))
+                for reg in regNeedToBeDeleted:
+                    deleteReg(reg)
+                regNeedToBeDeleted.clear()
+
             # temp := CALL FUN
             elif line[2] == "CALL":
                 result.append("\tcall %s"%(line[-1]))
                 match = re.search("(\d+)\*(.*)", line[0])
                 if match:
-                    result.append("\ts%s a0, 0(%s)"%(getLoadOrStoreScope(line[0]), match.group(2)))
+                    result.append("\ts%s a0, 0(%s)"%(getLoadOrStoreScope(line[0]), getReg(match.group(2))))
                 elif "var" in line[0]:
                     addLoadOrStoreInst("s%s"%getLoadOrStoreScope(line[0]), "a0", varMap[line[0]], "s0")
                 elif "temp" in line[0]:
@@ -271,7 +285,7 @@ def generateFunctionNode(start, end, varMap, funcName):
             elif line[2] == "<=":
                 result.append("\tble %s, %s, .%s"%(reg1, reg2, line[-1]))
         elif line[0] == "ARG":
-            match = re.search("(\d+)\*(.*)", line[1])
+            match = re.search("(\d+)\*(.*)", line[-1])
             if match:
                 result.append("\tl%s a%d, 0(%s)"%(getLoadOrStoreScope(line[1]), argNum, getReg(match.group(2))))
                 argNum += 1
@@ -287,7 +301,12 @@ def generateFunctionNode(start, end, varMap, funcName):
         elif line[0] == "CALL":
             result.append("\tcall %s"%(line[1]))
             argNum = 0
-
+        # ARRAY var temp * temp
+        elif line[0] == "ARRAY":
+            getReg(line[2])
+            getReg(line[-1])
+        deleteTemps()
+ 
 def findArraySize(lineIndex, sizeExpression):
     if "temp" not in sizeExpression:
         return sizeExpression
@@ -346,6 +365,8 @@ def generateCode():
 
         for key, value in arrayMap.items():
             arrayMap[key] = value - frameSize
+        # print(arrayMap)
+        # print(varMap)
 
         result.append("\t.align 1")
         result.append("\t.globl %s"%funcName)
@@ -362,7 +383,6 @@ def generateCode():
             addImmInst("addi", reg, "s0", value)
             addLoadOrStoreInst("sd", reg, varMap[key], "s0")
             deleteReg(reg)
-        print(varMap)
         generateFunctionNode(start, end, varMap, funcName)
 
         result.append(".%sReturn:"%(funcName))
@@ -380,10 +400,11 @@ def generateCode():
 
 arg1 = sys.argv[1]
 arg2 = sys.argv[2]
+# arg1 = "./out/draftInnerCode.txt"
+# arg2 = "./out/draftAsm.s"
 innerCodePath = arg1
 asmPath = arg2
 generateCode()
-
 '''
 char a = '1';
 char *b = &a;
@@ -404,7 +425,4 @@ def remove_number_parentheses(text):
 
 re.sub("\d")
 
-text = '这是一个示例(123)文本，(456)包裹着纯数字的括号将被去掉。'
-result = remove_number_parentheses(text)
-print(result)
 '''

@@ -101,6 +101,21 @@ void translator::translateInit()
 	scanfNode->paralist.push_back(new varNode("pointer_char"));
 	funcPool.insert({"scanf", scanfNode});
 
+    funcNode *sscanfNode = new funcNode("sscanf", "void");
+    sscanfNode->parameterVariable = true;
+    sscanfNode->paralist.push_back(new varNode("pointer_char"));
+    sscanfNode->paralist.push_back(new varNode("pointer_char"));
+    funcPool.insert({"sscanf", sscanfNode});
+
+    funcNode *strcmpNode = new funcNode("strcmp", "int");
+    strcmpNode->paralist.push_back(new varNode("pointer_char"));
+    strcmpNode->paralist.push_back(new varNode("pointer_char"));
+    funcPool.insert({"strcmp", strcmpNode});
+
+    funcNode *strdupNode = new funcNode("strdup", "pointer_char");
+    strdupNode->paralist.push_back(new varNode("pointer_char"));
+    funcPool.insert({"strdup", strdupNode});
+
 	translateProgram(root);
 }
 
@@ -720,11 +735,11 @@ varNode *translator::translateAdditiveExpression(treeNode *additiveExpression)
 	varNode *node1 = translateAdditiveExpression(additiveExpression->firstChild());
 	string op = additiveExpression->getChild(1)->name;
 	varNode *node2 = translateMultiplicativeExpression(additiveExpression->lastChild());
-	if (node1->type != node2->type)
-	{
-		printErrorMsg(additiveExpression->line, "Different types of data!");
-		exit(1);
-	}
+	// if (node1->type != node2->type)
+	// {
+	// 	printErrorMsg(additiveExpression->line, "Different types of data!");
+	// 	exit(1);
+	// }
 
 	varNode *temp = createTemp(node1->type);
 	innerCode.addCodeForAssignment(temp->getRepresentation(), node1->getRepresentation(), op, node2->getRepresentation());
@@ -743,11 +758,11 @@ varNode *translator::translateMultiplicativeExpression(treeNode *multiplicativeE
 	varNode *node1 = translateMultiplicativeExpression(multiplicativeExpression->firstChild());
 	string op = multiplicativeExpression->getChild(1)->name;
 	varNode *node2 = translateUnaryExpression(multiplicativeExpression->lastChild());
-	if (node1->type != node2->type)
-	{
-		printErrorMsg(multiplicativeExpression->line, "Different types of data!");
-		exit(1);
-	}
+	// if (node1->type != node2->type)
+	// {
+	// 	printErrorMsg(multiplicativeExpression->line, "Different types of data!");
+	// 	exit(1);
+	// }
 
 	varNode *temp = createTemp(node1->type);
 	innerCode.addCodeForAssignment(temp->getRepresentation(), node1->getRepresentation(), op, node2->getRepresentation());
@@ -1046,7 +1061,7 @@ void translator::translateArgumentExpressionList(funcNode *func, treeNode *argum
 		}
 		if (arguments.size() < func->paralist.size())
 		{
-			printErrorMsg(argumentExpressionList->line, "Function argument passing error!");
+            printErrorMsg(argumentExpressionList->line, "Function argument passing error!");
 			exit(1);
 		}
 		for (int i = 0; i < arguments.size(); i++)
@@ -1301,12 +1316,17 @@ void translator::translateJumpStatement(treeNode *jumpStatement)
 	}
 	else if (jumpStatement->firstChild()->name == "BREAK")
 	{
-		if (!blockStack.back()->canBreak)
-		{
-			printErrorMsg(jumpStatement->line, "Can not break!");
-			exit(1);
-		}
-		innerCode.addCodeForGoto(blockStack.back()->breakLabel);
+        for (int i = blockStack.size() - 1; i >= 0; i--)
+        {
+            Block * temp = blockStack[i];
+            if (temp->canBreak)
+            {
+                innerCode.addCodeForGoto(temp->breakLabel);
+                return;
+            }
+        }
+        printErrorMsg(jumpStatement->line, "Can not break!");
+		exit(1);
 	}
 	else if (jumpStatement->firstChild()->name == "RETURN" && jumpStatement->childrenNum == 2)
 	{

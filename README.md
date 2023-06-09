@@ -20,3 +20,10 @@ make quickSort
 bash matrix.sh
 ```
 即可验证矩阵乘法程序
+
++ 在根目录执行：（需要环境中有 qemu-user 和 riscv64-unknown-elf-gcc ）
+```
+make advisor
+bash advisor.sh
+```
+即可验证选课助手程序

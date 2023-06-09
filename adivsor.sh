@@ -1,0 +1,1 @@
+qemu-riscv64 ./tester/advisor/advisor-linux-riscv64 ./tester/advisor/advisor
